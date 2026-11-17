@@ -1,68 +1,85 @@
+# Sunvale Heat — an open-world crime game
+
 [![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![rank](https://make.fun/badge/gta6-01/Chapo1245/gta6-01-chapo124574/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![reward](https://make.fun/badge/gta6-01/Chapo1245/gta6-01-chapo124574/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 
-# Sunvale Heat — an open-world crime game
+Sunvale Heat is a complete open-world crime game that runs offline in a desktop
+browser from static files. Explore Sunvale City on foot or behind the wheel,
+steal cars, dodge the Sunvale PD, and work five story jobs for Mara Voss.
 
-A complete open-world crime game that runs offline in a desktop browser from static files.
-You are Jace Rivera, back in sun-soaked Sunvale City and in debt to fixer Mara Voss.
-Steal cars, outrun the Sunvale PD, run five story missions, and buy your freedom.
+## The city
 
-## What is in the game
+Procedural Sunvale City on a 9×9 street grid: downtown towers, a plaza with a
+fountain, two parks, and a beach with a boardwalk, palms and the sea to the
+south. Traffic flows on the grid, pedestrians stroll the sidewalks and flee
+from trouble, and the sun stays golden over it all.
 
-- **A city to explore on foot and by car** — a procedural 9×9-block city with downtown
-  towers, a central plaza, parks, a beach and a boardwalk, all generated at runtime.
-- **Traffic and pedestrians** — 12 AI traffic cars drive the street grid, 16 pedestrians
-  stroll the sidewalks and flee from danger; parked cars wait to be stolen.
-- **Steal and drive** — press E near any car to steal it; arcade driving with boost,
-  handbrake, collisions, crashes and explosions.
-- **Wanted level and police** — crimes raise 1–5 stars; police cars chase and ram you,
-  foot officers pursue and arrest you on foot. Lose the cops to cool off.
-- **Missions and a story** — five jobs for Mara Voss: First Wheels, Sunset Run,
-  Heat Check, Warehouse Bust and The Big Score, with waypoints, a golden beacon,
-  timers, guards and cash rewards.
-- **Combat** — pistol with ammo and reload, melee punches, car explosions, health
-  and a hospital respawn.
-- **HUD and minimap** — cash, health, wanted stars, clock, mission objective with
-  distance, a live top-down minimap with landmarks, traffic, police and the mission beacon.
-- **Start screen and save** — story intro, mission list, continue from a
-  localStorage save; progress autosaves while you play.
-- **Sound** — fully synthesized WebAudio: engine hum, police sirens, gunshots,
-  pickups and mission stings. No audio files, no network requests.
+## What you can do
+
+- **On foot** — WASD to move, Shift to run, Space to jump, F to punch,
+  click to shoot the pistol, E to steal a parked car.
+- **Driving** — arcade physics with boost (Shift), handbrake (Space),
+  crashes and explosions. Steal any of the 14 parked cars, including the
+  yellow taxi.
+- **Wanted level** — 1–5 stars. Police cars chase and ram; foot officers
+  chase and arrest. Lay low out of sight and the heat cools off. Get busted
+  or wasted and you lose cash at the station or the hospital.
+- **Five story missions for Mara Voss** — First Wheels, Sunset Run, Heat
+  Check, Warehouse Bust and The Big Score — with waypoint beacons, timers,
+  armed guards and cash rewards.
+- **HUD + minimap** — cash, health, wanted stars, clock, objective with
+  distance, speedometer, boost meter and a live minimap (roads, traffic,
+  police, beacon).
+- **Start screen + save** — progress, cash and jobs save to localStorage.
+- **Sound** — fully synthesized WebAudio: engine hum, sirens, gunshots,
+  explosions and mission stings. No audio assets.
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
-| WASD / arrows | Move on foot / drive |
-| Mouse drag | Orbit camera |
+| WASD / arrows | Move / drive |
+| Mouse (drag / click canvas) | Look around |
 | Shift | Run / boost |
-| E | Enter or steal a car / exit |
-| Click | Shoot |
+| Space | Jump / handbrake |
+| E | Enter / exit car |
+| Click or K | Shoot |
 | F | Punch |
 | R | Reload |
-| Space | Jump / handbrake |
-| H | Horn |
-| M | Mission details / retry a failed mission |
 | P / Esc | Pause |
+| M | Mute |
 
-## Play
+## Play it
 
-Serve `game/` with any static file server and open `index.html`, for example:
+Serve `game/` with any static file server and open `index.html` in desktop
+Chrome — no build step, no network requests, everything is vendored under
+`game/vendor/`.
 
-```sh
-cd game && python3 -m http.server 8080
+```
+npx serve game
 ```
 
-Then open http://localhost:8080 in desktop Chrome. No build step, no network.
+## Structure
 
-## Tech
+- `game/index.html` — page + HUD
+- `game/src/util.js` — shared state + helpers
+- `game/src/input.js` — keyboard + mouse
+- `game/src/audio.js` — synthesized sound
+- `game/src/city.js` — procedural city, plaza, parks, beach
+- `game/src/player.js` — on-foot character
+- `game/src/vehicles.js` — cars, traffic AI, driving physics
+- `game/src/pedestrians.js` — walkers who flee
+- `game/src/police.js` — wanted level, pursuit, arrest
+- `game/src/missions.js` — five story jobs + waypoint beacon
+- `game/src/combat.js` — pistol, punch, explosions, guards
+- `game/src/hud.js` — HUD, live minimap, menus
+- `game/src/save.js` — localStorage save
+- `game/src/main.js` — bootstrap + game loop + cameras
+- `main.ts` — entry program: copies `game/` + `screenshots/` to `/output`
+  and writes `dossier.json` with `vendor/makefun-game.ts`
 
-- three.js (vendored as `game/vendor/three.min.js`)
-- Plain JavaScript modules in `game/src/`, one clear job per file
-- `main.ts` copies `game/` and `screenshots/` to `/output` and writes
-  `/output/dossier.json` with the kit's `vendor/makefun-game.ts`
-
-Everything — city, characters, vehicles, names and story — is original.
+Everything in this game — the city, characters, vehicles, names, story, art
+and sound — is original. Nothing is taken from any commercial game.
 
 <sub>Entered on [make.fun](https://make.fun/?ref=wtacm6ft&utm_source=github&utm_medium=readme&utm_campaign=gta6-01) · AI agents build software for cash rewards</sub>

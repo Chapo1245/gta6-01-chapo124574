@@ -1,55 +1,110 @@
-// util.js — small shared helpers for Sunvale Heat (no dependencies).
-(function () {
-  'use strict';
-  var SV = window.SV || (window.SV = {});
+// Sunvale Heat — shared state + small helpers (fresh code, round 2).
+// Every module reads/writes the single game state object SV below.
+var TAU = Math.PI * 2;
 
-  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function rand(a, b) { return a + Math.random() * (b - a); }
-  function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
-  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function dist2D(ax, az, bx, bz) { var dx = ax - bx, dz = az - bz; return Math.sqrt(dx * dx + dz * dz); }
-  function angleLerp(a, b, t) {
-    var d = b - a;
-    while (d > Math.PI) d -= Math.PI * 2;
-    while (d < -Math.PI) d += Math.PI * 2;
-    return a + d * t;
-  }
-  function fmtMoney(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+var SV = {
+  mode: "menu", // menu | play | paused | busted | wasted
+  time: 0, // seconds since play started
+  clockMin: 8 * 60 + 24, // in-game clock, minutes since midnight (starts 08:24)
+  cash: 250,
+  health: 100,
+  maxHealth: 100,
+  wanted: 0, // 0..5 stars
+  wantedHeat: 0, // 0..1, builds on crimes, drains when unseen
+  lastCrimeAt: -999,
+  missionIndex: 0, // 0..4 story missions, 5 = all done
+  mission: null, // active mission runtime {id, phase, timer, ...}
+  player: null, // on-foot rig {group, mesh, pos, vel, yaw, speed, grounded}
+  car: null, // car object currently driven, or null
+  cars: [], // every car {group, kind, pos, yaw, speed, color, hp, ...}
+  peds: [], // pedestrians {group, pos, yaw, speed, state, ...}
+  officers: [], // foot police {group, pos, yaw, speed, arrestT}
+  guards: [], // warehouse guards {group, pos, hp, shootT}
+  colliders: [], // building AABBs {x0, z0, x1, z1}
+  camYaw: 0.6, camPitch: 0.32, camDist: 8,
+  camPos: null, // THREE.Vector3 smoothed camera position
+  scene: null, camera: null, renderer: null,
+  beacon: null, // mission waypoint beacon {group, pillar, ring, x, z}
+  audio: null, hud: null,
+  keys: {},
+  pointerLocked: false,
+  shot: null, // staged-screenshot hook name (?shot=chase|street|mission|menu)
+  stats: { shots: 0, hits: 0, carsStolen: 0, pedsHit: 0, missionsDone: 0 },
+  saveSlot: "sunvale-heat-save-v1",
+  muted: false,
+  timeScale: 1
+};
 
-  // Procedural window texture for building facades: warm plaster + lit windows.
-  function buildingTexture(baseColor, litRatio) {
-    var c = document.createElement('canvas');
-    c.width = 128; c.height = 256;
-    var g = c.getContext('2d');
-    g.fillStyle = baseColor; g.fillRect(0, 0, 128, 256);
-    g.fillStyle = 'rgba(0,0,0,0.12)';
-    for (var y = 0; y < 256; y += 32) g.fillRect(0, y, 128, 3);
-    for (var row = 0; row < 7; row++) {
-      for (var col = 0; col < 4; col++) {
-        var lit = Math.random() < litRatio;
-        g.fillStyle = lit ? (Math.random() < 0.7 ? '#ffd98a' : '#bfe6ff') : 'rgba(20,26,40,0.85)';
-        g.fillRect(10 + col * 30, 14 + row * 34, 20, 22);
-      }
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function rand(a, b) { return a + Math.random() * (b - a); }
+function randi(a, b) { return Math.floor(rand(a, b + 1)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function dist2(ax, az, bx, bz) { var dx = ax - bx, dz = az - bz; return Math.sqrt(dx * dx + dz * dz); }
+function angDiff(a, b) {
+  var d = (b - a) % TAU;
+  if (d > Math.PI) d -= TAU;
+  if (d < -Math.PI) d += TAU;
+  return d;
+}
+function angLerp(a, b, t) { return a + angDiff(a, b) * t; }
+function el(id) { return document.getElementById(id); }
+
+// Canvas texture helper: draw with a callback, get a THREE.CanvasTexture.
+function canvasTex(w, h, draw) {
+  var c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  draw(c.getContext("2d"), w, h);
+  var t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function boxMesh(w, h, d, color, x, y, z, rough) {
+  var m = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshLambertMaterial({ color: color, roughness: rough == null ? 0.9 : rough })
+  );
+  m.position.set(x, y, z);
+  return m;
+}
+
+function cylMesh(rt, rb, h, color, x, y, z, seg) {
+  var m = new THREE.Mesh(
+    new THREE.CylinderGeometry(rt, rb, h, seg || 10),
+    new THREE.MeshLambertMaterial({ color: color, roughness: 0.85 })
+  );
+  m.position.set(x, y, z);
+  return m;
+}
+
+// Push a circle (x,z,r) out of every building AABB it overlaps.
+function resolveBuildingCollision(x, z, r) {
+  for (var i = 0; i < SV.colliders.length; i++) {
+    var c = SV.colliders[i];
+    var nx = clamp(x, c.x0, c.x1), nz = clamp(z, c.z0, c.z1);
+    var dx = x - nx, dz = z - nz, d2 = dx * dx + dz * dz;
+    if (d2 < r * r) {
+      if (d2 < 0.0001) { x = c.x1 + r; continue; }
+      var d = Math.sqrt(d2);
+      x = nx + (dx / d) * r; z = nz + (dz / d) * r;
     }
-    var tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
   }
+  return { x: x, z: z };
+}
 
-  // Soft radial sprite texture used for particles, glows and muzzle flashes.
-  function glowTexture() {
-    var c = document.createElement('canvas');
-    c.width = 64; c.height = 64;
-    var g = c.getContext('2d');
-    var grad = g.createRadialGradient(32, 32, 2, 32, 32, 30);
-    grad.addColorStop(0, 'rgba(255,255,255,1)');
-    grad.addColorStop(0.4, 'rgba(255,220,150,0.7)');
-    grad.addColorStop(1, 'rgba(255,180,80,0)');
-    g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
-    var tex = new THREE.CanvasTexture(c);
-    return tex;
+function insideBuilding(x, z, pad) {
+  for (var i = 0; i < SV.colliders.length; i++) {
+    var c = SV.colliders[i];
+    if (x > c.x0 - pad && x < c.x1 + pad && z > c.z0 - pad && z < c.z1 + pad) return true;
   }
+  return false;
+}
 
-  SV.util = { clamp: clamp, lerp: lerp, rand: rand, randInt: randInt, pick: pick, dist2D: dist2D, angleLerp: angleLerp, fmtMoney: fmtMoney, buildingTexture: buildingTexture, glowTexture: glowTexture };
-})();
+// Nearest street-line coordinate (streets run at multiples of GRID).
+var GRID = 52;
+function nearestStreet(v) { return Math.round(v / GRID) * GRID; }
+function onRoad(x, z) {
+  var fx = Math.abs(x - nearestStreet(x)), fz = Math.abs(z - nearestStreet(z));
+  return fx < 7 || fz < 7;
+}

@@ -1,36 +1,47 @@
-// save.js — localStorage save/load for Sunvale Heat (cash, story progress, position).
-(function () {
-  'use strict';
-  var SV = window.SV || (window.SV = {});
-  var KEY = 'sunvale-heat-save-v1';
-
-  function readSave() {
+// Sunvale Heat — localStorage save (fresh code, round 2).
+// Saves cash, health, mission progress, position and clock. Loaded from the
+// start screen's Continue button.
+var Save = {
+  save: function () {
     try {
-      var raw = localStorage.getItem(KEY);
-      if (!raw) return null;
-      var s = JSON.parse(raw);
-      if (typeof s !== 'object' || s === null) return null;
-      return s;
-    } catch (e) { return null; }
-  }
-  function writeSave() {
-    try {
-      var p = SV.player ? SV.player.position() : { x: 0, z: 0 };
       var data = {
-        cash: SV.cash || 0,
-        rep: SV.rep || 0,
-        missionIndex: SV.missions ? SV.missions.index : 0,
-        missionsDone: SV.missions ? SV.missions.doneCount() : 0,
-        x: p.x, z: p.z,
-        health: SV.health || 100,
-        day: SV.day || 1,
-        savedAt: new Date().toISOString()
+        cash: Math.floor(SV.cash),
+        health: Math.round(SV.health),
+        missionIndex: SV.missionIndex,
+        clockMin: Math.round(SV.clockMin),
+        px: SV.player ? Math.round(SV.player.pos.x) : 0,
+        pz: SV.player ? Math.round(SV.player.pos.z) : 26,
+        time: Math.round(SV.time)
       };
-      localStorage.setItem(KEY, JSON.stringify(data));
+      localStorage.setItem(SV.saveSlot, JSON.stringify(data));
       return true;
     } catch (e) { return false; }
-  }
-  function clearSave() { try { localStorage.removeItem(KEY); } catch (e) {} }
+  },
 
-  SV.save = { read: readSave, write: writeSave, clear: clearSave, key: KEY };
-})();
+  load: function () {
+    try {
+      var raw = localStorage.getItem(SV.saveSlot);
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      if (typeof d.cash !== "number" || typeof d.missionIndex !== "number") return null;
+      return d;
+    } catch (e) { return null; }
+  },
+
+  has: function () { return this.load() !== null; },
+
+  clear: function () {
+    try { localStorage.removeItem(SV.saveSlot); } catch (e) {}
+  },
+
+  apply: function (d) {
+    SV.cash = d.cash;
+    SV.health = d.health;
+    SV.missionIndex = d.missionIndex;
+    SV.clockMin = d.clockMin;
+    SV.time = d.time || 0;
+    SV.player.pos.set(d.px, 0, d.pz);
+    SV.wanted = 0;
+    SV.wantedHeat = 0;
+  }
+};

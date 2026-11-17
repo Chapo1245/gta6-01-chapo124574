@@ -3,146 +3,137 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sunvale Heat — Open-World Crime</title>
+<title>Sunvale Heat — an open-world crime game</title>
 <style>
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0b1020; font-family: "Segoe UI", Arial, sans-serif; }
-  #game-canvas { display: block; width: 100%; height: 100%; }
-  .hud { position: absolute; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; user-select: none; }
-  #hud-top-left { top: 14px; left: 16px; }
-  #cash { font-size: 26px; font-weight: 800; color: #7dff9a; letter-spacing: 1px; }
-  #health-wrap { margin-top: 6px; width: 220px; height: 14px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); border-radius: 7px; overflow: hidden; }
-  #health-bar { height: 100%; width: 100%; background: linear-gradient(90deg,#ff5f45,#ffb347); }
-  #armor-line { margin-top: 4px; font-size: 13px; color: #cfe8ff; }
-  #hud-top-right { top: 14px; right: 16px; text-align: right; }
-  #stars { font-size: 28px; letter-spacing: 4px; color: #ffd94a; min-height: 34px; }
-  #stars .dim { color: rgba(255,255,255,.28); }
-  #clock { font-size: 20px; font-weight: 700; }
-  #date-line { font-size: 13px; color: #ffe9b0; }
-  #objective { top: 14px; left: 50%; transform: translateX(-50%); text-align: center; max-width: 560px; }
-  #objective-title { font-size: 17px; font-weight: 800; color: #ffe9b0; letter-spacing: 1px; }
-  #objective-text { font-size: 15px; margin-top: 2px; }
-  #objective-dist { font-size: 13px; color: #9be7ff; }
-  #minimap-wrap { position: absolute; right: 16px; top: 108px; width: 210px; height: 210px; border: 2px solid rgba(255,255,255,.65); border-radius: 6px; overflow: hidden; background: #123; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
-  #minimap { width: 100%; height: 100%; display: block; }
-  #speedo { right: 16px; bottom: 16px; text-align: right; font-size: 15px; }
-  #speed-num { font-size: 40px; font-weight: 800; line-height: 1; }
-  #speed-unit { font-size: 13px; color: #cfe8ff; }
-  #ammo-line { font-size: 15px; margin-top: 2px; }
-  #controls-hint { left: 16px; bottom: 16px; font-size: 13px; line-height: 1.55; color: #e8f2ff; background: rgba(0,0,0,.35); padding: 8px 10px; border-radius: 6px; }
-  #crosshair { left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 22px; color: #fff; display: none; }
-  #toast { left: 50%; bottom: 120px; transform: translateX(-50%); font-size: 19px; font-weight: 700; color: #ffe9b0; text-align: center; opacity: 0; transition: opacity .3s; }
-  #wanted-flash { left: 50%; top: 96px; transform: translateX(-50%); font-size: 20px; font-weight: 800; color: #ff6b5e; display: none; }
-  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #fff; background: radial-gradient(ellipse at center, rgba(20,30,60,.55), rgba(5,8,20,.88)); text-align: center; z-index: 10; }
-  .overlay h1 { font-size: 64px; margin: 0; letter-spacing: 4px; color: #ffb347; text-shadow: 0 4px 0 #c22e2e, 0 8px 24px rgba(0,0,0,.7); font-style: italic; }
-  .overlay h2 { font-size: 22px; margin: 6px 0 0; color: #9be7ff; letter-spacing: 3px; }
-  .overlay p { max-width: 620px; font-size: 16px; line-height: 1.6; color: #eef4ff; }
-  .btn { pointer-events: auto; cursor: pointer; margin: 8px; padding: 13px 34px; font-size: 18px; font-weight: 800; letter-spacing: 1px; color: #1a1206; background: linear-gradient(180deg,#ffd94a,#ff9d2e); border: none; border-radius: 8px; box-shadow: 0 4px 0 #a35c00, 0 6px 16px rgba(0,0,0,.5); }
-  .btn:hover { filter: brightness(1.08); }
-  .btn.secondary { background: linear-gradient(180deg,#cfe8ff,#7fb2e5); box-shadow: 0 4px 0 #3a5a80, 0 6px 16px rgba(0,0,0,.5); }
-  .btn-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
-  .small { font-size: 13px; color: #bcd2ea; line-height: 1.6; }
-  #mission-list { text-align: left; font-size: 14px; line-height: 1.7; background: rgba(0,0,0,.4); padding: 10px 16px; border-radius: 8px; margin: 10px 0; }
-  #mission-list .done { color: #7dff9a; }
-  #mission-list .next { color: #ffd94a; font-weight: 700; }
-  #mission-list .locked { color: #8fa3bd; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0f14; font-family: "Segoe UI", Arial, sans-serif; }
+  #game-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .hidden { display: none !important; }
-  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; background: #0b1020; z-index: 20; }
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; z-index: 5; }
+  .panel { background: rgba(8, 14, 20, 0.62); border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 8px 12px; }
+  #hud-top-left { position: absolute; top: 14px; left: 14px; min-width: 210px; }
+  #cash { font-size: 26px; font-weight: 800; color: #7dff9a; text-shadow: 0 2px 4px #000; }
+  #health-bar { width: 180px; height: 10px; background: rgba(0,0,0,0.55); border-radius: 5px; margin-top: 5px; overflow: hidden; }
+  #health-fill { height: 100%; width: 100%; background: #2ecc71; }
+  #ammo { font-size: 13px; margin-top: 5px; color: #ffd76e; text-shadow: 0 1px 3px #000; }
+  #hud-top-right { position: absolute; top: 14px; right: 14px; text-align: right; }
+  #stars { font-size: 26px; letter-spacing: 2px; color: rgba(255,255,255,0.35); text-shadow: 0 2px 4px #000; }
+  #stars.hot { color: #ffd76e; }
+  #clock { font-size: 20px; font-weight: 700; text-shadow: 0 2px 4px #000; }
+  #objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); max-width: 620px; text-align: center; }
+  #objective-text { font-size: 15px; font-weight: 600; text-shadow: 0 2px 4px #000; }
+  #speedo-box { position: absolute; right: 16px; bottom: 210px; text-align: right; }
+  #speedo { font-size: 34px; font-weight: 800; text-shadow: 0 2px 6px #000; }
+  #boost-bar { width: 150px; height: 8px; background: rgba(0,0,0,0.55); border-radius: 4px; margin-top: 4px; overflow: hidden; }
+  #boost-fill { height: 100%; width: 100%; background: #ff9f1c; }
+  #minimap { position: absolute; right: 16px; bottom: 16px; width: 180px; height: 180px; border: 2px solid rgba(255,255,255,0.35); border-radius: 6px; background: #0e1a24; }
+  #prompt { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 600; padding: 8px 16px; display: none; text-shadow: 0 1px 3px #000; }
+  #prompt.show { display: block; }
+  #toast { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; padding: 10px 18px; opacity: 0; transition: opacity 0.25s; text-shadow: 0 1px 3px #000; }
+  #toast.show { opacity: 1; }
+  #reward-banner { position: absolute; top: 26%; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 800; color: #ffd76e; padding: 12px 26px; opacity: 0; transition: opacity 0.3s; text-shadow: 0 2px 6px #000; }
+  #reward-banner.show { opacity: 1; }
+  #mission-card { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); text-align: center; min-width: 420px; opacity: 0; transition: opacity 0.3s; }
+  #mission-card.show { opacity: 1; }
+  #mission-title { font-size: 26px; font-weight: 800; color: #ffd76e; }
+  #mission-brief { font-size: 15px; margin-top: 6px; line-height: 1.45; }
+  #mission-reward { font-size: 14px; margin-top: 8px; color: #7dff9a; font-weight: 700; }
+  #damage-flash { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,0,0,0.45) 100%); opacity: 0; transition: opacity 0.15s; z-index: 6; }
+  #damage-flash.show { opacity: 1; }
+  #crosshair { position: fixed; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 4px #000; z-index: 5; display: none; pointer-events: none; }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; background: rgba(5, 10, 16, 0.55); }
+  .card { background: rgba(10, 18, 26, 0.92); border: 1px solid rgba(255,215,110,0.4); border-radius: 14px; padding: 30px 38px; max-width: 620px; color: #fff; text-align: center; box-shadow: 0 10px 50px rgba(0,0,0,0.6); }
+  .card h1 { font-size: 46px; font-weight: 900; letter-spacing: 3px; color: #ffd76e; text-shadow: 0 3px 0 #b3541e; }
+  .card h2 { font-size: 15px; font-weight: 600; color: #9fd4ff; letter-spacing: 2px; margin-top: 2px; }
+  .card p { font-size: 15px; line-height: 1.55; margin-top: 14px; color: #dfe8ef; }
+  .menu-mission { font-size: 14px; text-align: left; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .menu-mission.done { color: #7dff9a; }
+  #menu-missions { margin-top: 14px; }
+  .controls { font-size: 13px; color: #b9c8d4; margin-top: 14px; line-height: 1.7; }
+  .btn { pointer-events: auto; cursor: pointer; display: inline-block; margin: 14px 6px 0; padding: 12px 26px; font-size: 17px; font-weight: 800; color: #14100a; background: #ffd76e; border: none; border-radius: 8px; }
+  .btn:hover { background: #ffcf4d; }
+  .btn.ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.5); }
+  #end-title { font-size: 52px; font-weight: 900; letter-spacing: 4px; }
+  #end-title.busted { color: #4da6ff; }
+  #end-title.wasted { color: #ff5a4e; }
 </style>
 </head>
 <body>
-<div id="loading">Loading Sunvale City…</div>
 <canvas id="game-canvas"></canvas>
 
-<div id="hud-top-left" class="hud hidden">
-  <div id="cash">$0</div>
-  <div id="health-wrap"><div id="health-bar"></div></div>
-  <div id="armor-line">JACE RIVERA &nbsp;·&nbsp; <span id="rep-line">REP 0</span></div>
-</div>
-<div id="hud-top-right" class="hud hidden">
-  <div id="stars"></div>
-  <div id="clock">18:00</div>
-  <div id="date-line">SUNVALE · DAY 1</div>
-</div>
-<div id="objective" class="hud hidden">
-  <div id="objective-title">FREE ROAM</div>
-  <div id="objective-text">Explore Sunvale. Steal a car with E, talk to Mara at the garage.</div>
-  <div id="objective-dist"></div>
-</div>
-<div id="minimap-wrap" class="hud hidden"><canvas id="minimap" width="210" height="210"></canvas></div>
-<div id="speedo" class="hud hidden">
-  <div id="speed-num">0</div>
-  <div id="speed-unit">MPH &nbsp;·&nbsp; <span id="gear-line">PARK</span></div>
-  <div id="ammo-line">PISTOL — <span id="ammo-num">∞</span></div>
-</div>
-<div id="controls-hint" class="hud hidden">
-  WASD move / drive &nbsp;·&nbsp; Mouse drag camera &nbsp;·&nbsp; SHIFT run / boost<br>
-  E enter / steal car &nbsp;·&nbsp; SPACE jump / handbrake &nbsp;·&nbsp; CLICK shoot &nbsp;·&nbsp; F punch<br>
-  R reload &nbsp;·&nbsp; M mission list &nbsp;·&nbsp; P pause &nbsp;·&nbsp; H horn
-</div>
-<div id="crosshair" class="hud">+</div>
-<div id="toast" class="hud"></div>
-<div id="wanted-flash" class="hud">★ WANTED — LOSE THE POLICE ★</div>
-
-<div id="start-screen" class="overlay">
-  <h1>SUNVALE HEAT</h1>
-  <h2>AN OPEN-WORLD CRIME STORY</h2>
-  <p>Sun-soaked Sunvale City is yours — on foot or behind the wheel. Jace Rivera is back in town,
-  in debt to fixer Mara Voss. Steal cars, outrun the Sunvale PD, run five story missions, and buy
-  your freedom one job at a time. Wanted stars bring the heat: lose the cops or pay the price.</p>
-  <div id="mission-list"></div>
-  <div class="btn-row">
-    <button class="btn" id="btn-start">▶ NEW STORY</button>
-    <button class="btn secondary hidden" id="btn-continue">↻ CONTINUE — <span id="continue-label"></span></button>
+<div id="hud" class="hidden">
+  <div id="hud-top-left" class="panel">
+    <div id="cash">$250</div>
+    <div id="health-bar"><div id="health-fill"></div></div>
+    <div id="ammo">Ammo 12/12</div>
   </div>
-  <p class="small">WASD move &amp; drive · Mouse drag camera · E steal / enter car · CLICK shoot · F punch · SHIFT run<br>
-  Progress saves automatically. Plays fully offline — no network, no account, no downloads.</p>
-</div>
-
-<div id="pause-screen" class="overlay hidden">
-  <h1 style="font-size:44px">PAUSED</h1>
-  <p>Sunvale waits for no one. Your progress is saved.</p>
-  <div class="btn-row">
-    <button class="btn" id="btn-resume">RESUME</button>
-    <button class="btn secondary" id="btn-save-quit">SAVE &amp; MENU</button>
+  <div id="hud-top-right" class="panel">
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="clock">08:24</div>
   </div>
-  <p class="small" id="pause-stats"></p>
+  <div id="objective" class="panel"><span id="objective-text"></span></div>
+  <div id="speedo-box"><div id="speedo">0 MPH</div><div id="boost-box"><div id="boost-bar"><div id="boost-fill"></div></div></div></div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="prompt" class="panel"></div>
+  <div id="toast" class="panel"></div>
+  <div id="reward-banner" class="panel"><span id="reward-text"></span></div>
+  <div id="mission-card" class="panel">
+    <div id="mission-title"></div>
+    <div id="mission-brief"></div>
+    <div id="mission-reward"></div>
+  </div>
+</div>
+<div id="damage-flash"></div>
+<div id="crosshair"></div>
+
+<div id="menu" class="overlay">
+  <div class="card">
+    <h1>SUNVALE HEAT</h1>
+    <h2>AN OPEN-WORLD CRIME GAME</h2>
+    <p>Sunvale City is yours, Jace. Mara Voss has five jobs for you — steal the
+    wheels, outrun the beach, shake the law, crack the warehouse, and take the
+    bank. Drive anything, fight anyone, and don't get caught.</p>
+    <div id="menu-missions"></div>
+    <div class="controls">
+      WASD move / drive &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; Shift run / boost &nbsp;·&nbsp; Space jump / handbrake<br>
+      E enter &amp; exit car &nbsp;·&nbsp; Click / K shoot &nbsp;·&nbsp; F punch &nbsp;·&nbsp; R reload &nbsp;·&nbsp; P pause &nbsp;·&nbsp; M mute
+    </div>
+    <button id="btn-start" class="btn">START NEW GAME</button>
+    <button id="btn-continue" class="btn ghost">CONTINUE</button>
+  </div>
 </div>
 
-<div id="busted-screen" class="overlay hidden">
-  <h1 style="font-size:52px;color:#9be7ff">BUSTED!</h1>
-  <p id="busted-text">The Sunvale PD hauled you in. Bail cost you cash — the story goes on.</p>
-  <div class="btn-row"><button class="btn" id="btn-busted">BACK ON THE STREETS</button></div>
+<div id="pause" class="overlay hidden">
+  <div class="card">
+    <h1 style="font-size:32px">PAUSED</h1>
+    <p>Sunvale waits for no one — except right now.</p>
+    <button id="btn-resume" class="btn">RESUME</button>
+    <button id="btn-restart" class="btn ghost">RESTART JOB</button>
+    <button id="btn-quit-menu" class="btn ghost">MAIN MENU</button>
+  </div>
 </div>
 
-<div id="wasted-screen" class="overlay hidden">
-  <h1 style="font-size:52px;color:#ff6b5e">WASTED</h1>
-  <p id="wasted-text">You woke up at Sunvale General, lighter in the wallet.</p>
-  <div class="btn-row"><button class="btn" id="btn-wasted">GET BACK UP</button></div>
-</div>
-
-<div id="complete-screen" class="overlay hidden">
-  <h1 style="font-size:48px">THE BIG SCORE</h1>
-  <h2>STORY COMPLETE — JACE IS FREE</h2>
-  <p id="complete-text"></p>
-  <div class="btn-row">
-    <button class="btn" id="btn-freeroam">KEEP PLAYING — FREE ROAM</button>
-    <button class="btn secondary" id="btn-restart-story">REPLAY STORY</button>
+<div id="end-screen" class="overlay hidden">
+  <div class="card">
+    <div id="end-title">BUSTED</div>
+    <p id="end-text"></p>
+    <button id="btn-end-ok" class="btn">GET BACK OUT THERE</button>
   </div>
 </div>
 
 <script src="vendor/three.min.js"></script>
 <script src="src/util.js"></script>
-<script src="src/audio.js"></script>
 <script src="src/input.js"></script>
-<script src="src/save.js"></script>
+<script src="src/audio.js"></script>
 <script src="src/city.js"></script>
+<script src="src/player.js"></script>
 <script src="src/vehicles.js"></script>
 <script src="src/pedestrians.js"></script>
 <script src="src/police.js"></script>
-<script src="src/combat.js"></script>
 <script src="src/missions.js"></script>
+<script src="src/combat.js"></script>
 <script src="src/hud.js"></script>
-<script src="src/player.js"></script>
+<script src="src/save.js"></script>
 <script src="src/main.js"></script>
 </body>
 </html>

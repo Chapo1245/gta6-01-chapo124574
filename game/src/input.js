@@ -1,59 +1,54 @@
-// input.js — keyboard + mouse state for Sunvale Heat.
-// WASD/arrows move & drive, mouse drag orbits the camera, click shoots, E/F/R/P/M/H actions.
-(function () {
-  'use strict';
-  var SV = window.SV || (window.SV = {});
-  var keys = {};
-  var pressed = {}; // edge-triggered: true for one frame after keydown
-  var mouseDown = false, mouseClicked = false;
-  var dragDX = 0, dragDY = 0, dragging = false, lastX = 0, lastY = 0;
+// Sunvale Heat — keyboard + mouse input (fresh code, round 2).
+// WASD move, Shift run, Space jump, E enter/exit car, F punch, LMB/K shoot,
+// R reload, P/Esc pause, M mute. Mouse drag orbits the camera; clicking the
+// canvas requests pointer lock when playing.
+var Input = {
+  init: function (canvas) {
+    window.addEventListener("keydown", function (e) {
+      SV.keys[e.code] = true;
+      if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) >= 0) e.preventDefault();
+      if (e.code === "KeyP" || e.code === "Escape") Game.togglePause();
+      if (e.code === "KeyM") { SV.muted = !SV.muted; if (SV.audio) SV.audio.setMuted(SV.muted); }
+      if (e.code === "KeyE") Game.tryEnterExitCar();
+      if (e.code === "KeyF") Combat.punch();
+      if (e.code === "KeyR") Combat.reload();
+    });
+    window.addEventListener("keyup", function (e) { SV.keys[e.code] = false; });
+    window.addEventListener("blur", function () { SV.keys = {}; });
 
-  window.addEventListener('keydown', function (e) {
-    if (e.repeat) return;
-    keys[e.code] = true;
-    pressed[e.code] = true;
-    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.code) >= 0) e.preventDefault();
-  });
-  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
-  window.addEventListener('blur', function () { for (var k in keys) keys[k] = false; });
+    var dragging = false, lx = 0, ly = 0;
+    canvas.addEventListener("mousedown", function (e) {
+      if (SV.mode !== "play") return;
+      dragging = true; lx = e.clientX; ly = e.clientY;
+      if (!SV.pointerLocked && canvas.requestPointerLock) canvas.requestPointerLock();
+    });
+    window.addEventListener("mouseup", function () { dragging = false; });
+    window.addEventListener("mousemove", function (e) {
+      if (SV.mode !== "play") return;
+      var dx = 0, dy = 0;
+      if (SV.pointerLocked) { dx = e.movementX || 0; dy = e.movementY || 0; }
+      else if (dragging) { dx = e.clientX - lx; dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; }
+      else return;
+      SV.camYaw -= dx * 0.0042;
+      SV.camPitch = clamp(SV.camPitch + dy * 0.0032, 0.06, 1.15);
+    });
+    document.addEventListener("pointerlockchange", function () {
+      SV.pointerLocked = document.pointerLockElement === canvas;
+    });
+    canvas.addEventListener("click", function () {
+      if (SV.mode === "play") Combat.shoot();
+    });
+  },
 
-  var canvas = document.getElementById('game-canvas');
-  canvas.addEventListener('mousedown', function (e) {
-    mouseDown = true; dragging = true; lastX = e.clientX; lastY = e.clientY;
-    if (e.button === 0) mouseClicked = true;
-    SV.audio.unlock();
-  });
-  window.addEventListener('mouseup', function () { mouseDown = false; dragging = false; });
-  window.addEventListener('mousemove', function (e) {
-    if (!dragging) return;
-    dragDX += e.clientX - lastX;
-    dragDY += e.clientY - lastY;
-    lastX = e.clientX; lastY = e.clientY;
-  });
-  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  // -1..1 movement axes relative to camera yaw.
+  moveAxes: function () {
+    var k = SV.keys, f = 0, s = 0;
+    if (k["KeyW"] || k["ArrowUp"]) f += 1;
+    if (k["KeyS"] || k["ArrowDown"]) f -= 1;
+    if (k["KeyD"] || k["ArrowRight"]) s += 1;
+    if (k["KeyA"] || k["ArrowLeft"]) s -= 1;
+    return { f: f, s: s };
+  },
 
-  function axis() {
-    var x = 0, z = 0;
-    if (keys.KeyW || keys.ArrowUp) z -= 1;
-    if (keys.KeyS || keys.ArrowDown) z += 1;
-    if (keys.KeyA || keys.ArrowLeft) x -= 1;
-    if (keys.KeyD || keys.ArrowRight) x += 1;
-    return { x: x, z: z };
-  }
-  function endFrame() {
-    pressed = {};
-    mouseClicked = false;
-    dragDX = 0; dragDY = 0;
-  }
-  SV.input = {
-    keys: keys,
-    axis: axis,
-    wasPressed: function (code) { return !!pressed[code]; },
-    isDown: function (code) { return !!keys[code]; },
-    run: function () { return !!(keys.ShiftLeft || keys.ShiftRight); },
-    mouseClicked: function () { return mouseClicked; },
-    mouseDown: function () { return mouseDown; },
-    drag: function () { return { dx: dragDX, dy: dragDY }; },
-    endFrame: endFrame
-  };
-})();
+  isDown: function (code) { return !!SV.keys[code]; }
+};

@@ -1,115 +1,99 @@
-// pedestrians.js — sidewalk walkers who stroll, chat, and flee from danger.
-(function () {
-  'use strict';
-  var SV = window.SV || (window.SV = {});
-  var U = SV.util;
-  var peds = [];
-  var sceneRef = null;
-  var SHIRT_COLORS = [0xe85a5a, 0x5a8ae8, 0x5ac85a, 0xe8c85a, 0xc85ae8, 0x5ad8e8, 0xe8e8e8, 0x8a5a3a];
-  var SKIN = [0xe8b88a, 0xc98a5a, 0x8a5a38, 0xf0c8a0];
+// Sunvale Heat — pedestrians (fresh code, round 2).
+// 16 walkers on the sidewalks; they stroll between random corners, flee
+// from gunshots, explosions and speeding cars, and can be knocked down.
+var Pedestrians = {
+  shirtColors: [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0x1abc9c, 0xe67e22, 0xecf0f1],
 
-  function makePedModel() {
-    var g = new THREE.Group();
-    var shirt = new THREE.MeshLambertMaterial({ color: U.pick(SHIRT_COLORS) });
-    var skin = new THREE.MeshLambertMaterial({ color: U.pick(SKIN) });
-    var pants = new THREE.MeshLambertMaterial({ color: U.pick([0x2a3a5a, 0x3a3a3a, 0x5a4a3a]) });
-    var body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.4), shirt);
-    body.position.y = 1.15; g.add(body);
-    var head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), skin);
-    head.position.y = 1.85; g.add(head);
-    var legL = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.7, 0.3), pants);
-    legL.position.set(-0.18, 0.35, 0); g.add(legL);
-    var legR = legL.clone(); legR.position.x = 0.18; g.add(legR);
-    var armL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.75, 0.22), shirt);
-    armL.position.set(-0.48, 1.15, 0); g.add(armL);
-    var armR = armL.clone(); armR.position.x = 0.48; g.add(armR);
-    g.userData.legs = [legL, legR];
-    g.userData.arms = [armL, armR];
-    return g;
-  }
-
-  function spawnPeds(scene, count) {
-    sceneRef = scene;
-    for (var i = 0; i < count; i++) {
-      var p = SV.city.randomSidewalkPoint();
-      if (SV.city.hitsBuilding(p.x, p.z, 2)) continue;
-      var model = makePedModel();
-      model.position.set(p.x, 0, p.z);
-      scene.add(model);
-      var target = SV.city.randomSidewalkPoint();
-      peds.push({
-        group: model, x: p.x, z: p.z, angle: U.rand(0, Math.PI * 2),
-        tx: target.x, tz: target.z, speed: U.rand(1.2, 2.2),
-        state: 'walk', // walk | flee | down
-        hp: 100, panic: 0, walkPhase: U.rand(0, 6)
+  spawn: function (scene) {
+    for (var i = 0; i < 16; i++) {
+      var group = new THREE.Group();
+      var shirt = pick(this.shirtColors);
+      var legs = boxMesh(0.5, 0.7, 0.32, 0x2c3e50, 0, 0.35, 0);
+      var torso = boxMesh(0.62, 0.75, 0.36, shirt, 0, 1.08, 0);
+      var head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.26, 10, 8),
+        new THREE.MeshLambertMaterial({ color: pick([0xe8b98a, 0xc98a5a, 0x8a5a3a, 0xf0c8a0]) })
+      );
+      head.position.set(0, 1.68, 0);
+      var sh = new THREE.Mesh(
+        new THREE.CircleGeometry(0.45, 10),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 })
+      );
+      sh.rotation.x = -Math.PI / 2;
+      sh.position.y = 0.02;
+      group.add(legs, torso, head, sh);
+      var x = randi(-4, 4) * GRID + rand(-16, 16);
+      var z = randi(-4, 4) * GRID + rand(-16, 16);
+      if (insideBuilding(x, z, 2)) { x = nearestStreet(x); z = nearestStreet(z); }
+      group.position.set(x, 0, z);
+      scene.add(group);
+      SV.peds.push({
+        group: group, pos: group.position, yaw: rand(0, TAU),
+        speed: rand(1.2, 2.2), state: "walk", // walk | flee | down
+        tx: x, tz: z, fear: 0, downT: 0, phase: rand(0, TAU)
       });
     }
-  }
+  },
 
-  function updatePeds(dt, playerPos, dangerPos) {
-    for (var i = 0; i < peds.length; i++) {
-      var p = peds[i];
-      if (p.state === 'down') continue;
-      var dangerD = dangerPos ? U.dist2D(p.x, p.z, dangerPos.x, dangerPos.z) : 999;
-      if (dangerD < 14) p.panic = 1;
-      p.panic = Math.max(0, p.panic - dt * 0.08);
-      var speed = p.speed * (p.panic > 0 ? 3.2 : 1);
-      if (p.panic > 0) {
-        // run away from the danger
-        var dx = p.x - dangerPos.x, dz = p.z - dangerPos.z;
-        var d = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
-        p.tx = p.x + dx / d * 30; p.tz = p.z + dz / d * 30;
+  scare: function (x, z, radius) {
+    for (var i = 0; i < SV.peds.length; i++) {
+      var p = SV.peds[i];
+      if (p.state === "down") continue;
+      if (dist2(x, z, p.pos.x, p.pos.z) < radius) {
+        p.state = "flee";
+        p.fear = 1;
+        // Flee direction: away from the scare point.
+        var dx = p.pos.x - x, dz = p.pos.z - z, d = Math.sqrt(dx * dx + dz * dz) || 1;
+        p.tx = p.pos.x + (dx / d) * rand(30, 60);
+        p.tz = p.pos.z + (dz / d) * rand(30, 60);
       }
-      var dx2 = p.tx - p.x, dz2 = p.tz - p.z;
-      var dist = Math.sqrt(dx2 * dx2 + dz2 * dz2);
-      if (dist < 2) {
-        var t = SV.city.randomSidewalkPoint();
-        p.tx = t.x; p.tz = t.z;
-      } else {
-        var targetAngle = Math.atan2(dx2, dz2);
-        p.angle = U.angleLerp(p.angle, targetAngle, Math.min(1, dt * 5));
-        p.x += Math.sin(p.angle) * speed * dt;
-        p.z += Math.cos(p.angle) * speed * dt;
-        var fixed = SV.city.collideCircle(p.x, p.z, 0.6);
-        p.x = fixed.x; p.z = fixed.z;
-        p.walkPhase += dt * speed * 3;
-        var swing = Math.sin(p.walkPhase) * 0.5;
-        p.group.userData.legs[0].rotation.x = swing;
-        p.group.userData.legs[1].rotation.x = -swing;
-        p.group.userData.arms[0].rotation.x = -swing * 0.7;
-        p.group.userData.arms[1].rotation.x = swing * 0.7;
+    }
+  },
+
+  knockDown: function (ped, car) {
+    if (ped.state === "down") return;
+    ped.state = "down";
+    ped.downT = 0;
+    ped.group.rotation.x = -Math.PI / 2;
+    ped.group.position.y = 0.4;
+    SV.stats.pedsHit++;
+    Police.addHeat(0.5, "pedestrian");
+    if (SV.audio) SV.audio.noise(0.2, 0.4, 700);
+    Pedestrians.scare(ped.pos.x, ped.pos.z, 25);
+  },
+
+  update: function (dt) {
+    for (var i = 0; i < SV.peds.length; i++) {
+      var p = SV.peds[i];
+      if (p.state === "down") {
+        p.downT += dt;
+        if (p.downT > 6) {
+          p.state = "walk";
+          p.group.rotation.x = 0;
+          p.group.position.y = 0;
+          p.tx = p.pos.x + rand(-40, 40);
+          p.tz = p.pos.z + rand(-40, 40);
+        }
+        continue;
       }
-      p.group.position.set(p.x, 0, p.z);
-      p.group.rotation.y = p.angle;
+      var d = dist2(p.pos.x, p.pos.z, p.tx, p.tz);
+      if (d < 2) {
+        // Pick a new corner to walk to (sidewalk-ish: near a street line).
+        p.tx = randi(-4, 4) * GRID + rand(-16, 16);
+        p.tz = randi(-4, 4) * GRID + rand(-16, 16);
+        if (p.state === "flee") { p.state = "walk"; p.fear = 0; }
+      }
+      var want = Math.atan2(p.tx - p.pos.x, p.tz - p.pos.z);
+      p.yaw = angLerp(p.yaw, want, 1 - Math.pow(0.01, dt));
+      var sp = p.state === "flee" ? 6.5 : p.speed;
+      p.pos.x += Math.sin(p.yaw) * sp * dt;
+      p.pos.z += Math.cos(p.yaw) * sp * dt;
+      var res = resolveBuildingCollision(p.pos.x, p.pos.z, 0.5);
+      p.pos.x = clamp(res.x, -City.bounds, City.bounds);
+      p.pos.z = clamp(res.z, -City.bounds, City.bounds + 40);
+      p.group.rotation.y = p.yaw;
+      p.phase += sp * dt * 2.2;
+      p.group.children[1].rotation.x = Math.sin(p.phase) * 0.18;
     }
   }
-
-  // A pedestrian is hit: falls down, drops a little cash, raises wanted level.
-  function hitPed(ped, damage) {
-    ped.hp -= damage;
-    if (ped.hp <= 0 && ped.state !== 'down') {
-      ped.state = 'down';
-      ped.group.rotation.x = -Math.PI / 2;
-      ped.group.position.y = 0.4;
-      SV.police.addWanted(1, 'Pedestrian down');
-      SV.cash += 25;
-      SV.hud.toast('Pedestrian dropped $25');
-      SV.audio.pickup();
-      return true;
-    }
-    ped.panic = 1;
-    return false;
-  }
-  function nearestPed(x, z, maxDist) {
-    var best = null, bd = maxDist;
-    for (var i = 0; i < peds.length; i++) {
-      var p = peds[i];
-      if (p.state === 'down') continue;
-      var d = U.dist2D(x, z, p.x, p.z);
-      if (d < bd) { bd = d; best = p; }
-    }
-    return best;
-  }
-
-  SV.peds = { spawn: spawnPeds, update: updatePeds, hit: hitPed, nearest: nearestPed, list: peds };
-})();
+};
