@@ -1,85 +1,85 @@
-# Sunvale Heat — an open-world crime game
-
 [![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![rank](https://make.fun/badge/gta6-01/Chapo1245/gta6-01-chapo124574/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![reward](https://make.fun/badge/gta6-01/Chapo1245/gta6-01-chapo124574/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 
-Sunvale Heat is a complete open-world crime game that runs offline in a desktop
-browser from static files. Explore Sunvale City on foot or behind the wheel,
-steal cars, dodge the Sunvale PD, and work five story jobs for Mara Voss.
+# Sunvale Heat
 
-## The city
+An original open-world crime game in the spirit of GTA 6, built for the
+[make.fun gta6-01 bounty](https://make.fun/bounty/gta6-01). Jace rolls into
+Sunvale — a sun-soaked coastal city — with empty pockets and a fast mouth.
+Mara Voss runs the streets: five story jobs, one big score, and every cop in
+the city between you and the money. Steal it. Drive it. Survive it.
 
-Procedural Sunvale City on a 9×9 street grid: downtown towers, a plaza with a
-fountain, two parks, and a beach with a boardwalk, palms and the sea to the
-south. Traffic flows on the grid, pedestrians stroll the sidewalks and flee
-from trouble, and the sun stays golden over it all.
+## Play it
 
-## What you can do
+Serve `game/` with any static server and open `game/index.html` in desktop
+Chrome. No build step, no network requests — everything is local.
 
-- **On foot** — WASD to move, Shift to run, Space to jump, F to punch,
-  click to shoot the pistol, E to steal a parked car.
-- **Driving** — arcade physics with boost (Shift), handbrake (Space),
-  crashes and explosions. Steal any of the 14 parked cars, including the
-  yellow taxi.
-- **Wanted level** — 1–5 stars. Police cars chase and ram; foot officers
-  chase and arrest. Lay low out of sight and the heat cools off. Get busted
-  or wasted and you lose cash at the station or the hospital.
-- **Five story missions for Mara Voss** — First Wheels, Sunset Run, Heat
-  Check, Warehouse Bust and The Big Score — with waypoint beacons, timers,
-  armed guards and cash rewards.
-- **HUD + minimap** — cash, health, wanted stars, clock, objective with
-  distance, speedometer, boost meter and a live minimap (roads, traffic,
-  police, beacon).
-- **Start screen + save** — progress, cash and jobs save to localStorage.
-- **Sound** — fully synthesized WebAudio: engine hum, sirens, gunshots,
-  explosions and mission stings. No audio assets.
+```sh
+cd game && python3 -m http.server 8080
+# open http://localhost:8080
+```
+
+## What's in the world
+
+- **A city to explore on foot and by car** — 9×9 blocks of procedural
+  Sunvale: downtown towers, a plaza with a fountain, two parks, a beach,
+  boardwalk and sea. Walk, run, jump — or steal one of 14 parked cars.
+- **Traffic and pedestrians** — 12 AI cars drive the grid and obey the
+  traffic lights; 16 walkers stroll the sidewalks and flee danger.
+- **Wanted system and police** — 1–5 stars. Police cruisers chase and ram;
+  foot officers pursue and arrest. Lose the heat or outrun it.
+- **Missions and a story** — five jobs for Mara Voss (First Wheels, Sunset
+  Run, Heat Check, Warehouse Bust, The Big Score) with waypoint beacons,
+  timers, guards and rewards — plus taxi fares as a side gig.
+- **Combat** — pistol, fists, car explosions, busted / wasted flows.
+- **HUD with a live minimap** — cash, health, stars, clock, objective and
+  distance, speedometer, and a minimap showing roads, traffic, police and
+  the mission beacon.
+- **Start screen and save** — progress (cash, jobs done) persists in
+  localStorage. Synthesized WebAudio: engine, sirens, gunshots, stings and
+  a synthwave music loop. No audio files.
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
-| WASD / arrows | Move / drive |
-| Mouse (drag / click canvas) | Look around |
-| Shift | Run / boost |
-| Space | Jump / handbrake |
-| E | Enter / exit car |
-| Click or K | Shoot |
+| WASD | Move / drive |
+| Mouse | Look / aim (click the game to lock the mouse) |
+| E | Steal / exit car |
+| Click | Shoot |
 | F | Punch |
 | R | Reload |
-| P / Esc | Pause |
-| M | Mute |
-
-## Play it
-
-Serve `game/` with any static file server and open `index.html` in desktop
-Chrome — no build step, no network requests, everything is vendored under
-`game/vendor/`.
-
-```
-npx serve game
-```
+| Shift | Run / boost |
+| Space | Jump / handbrake |
+| M | Next job |
+| P | Pause |
+| N | Mute |
 
 ## Structure
 
-- `game/index.html` — page + HUD
-- `game/src/util.js` — shared state + helpers
-- `game/src/input.js` — keyboard + mouse
-- `game/src/audio.js` — synthesized sound
-- `game/src/city.js` — procedural city, plaza, parks, beach
-- `game/src/player.js` — on-foot character
-- `game/src/vehicles.js` — cars, traffic AI, driving physics
-- `game/src/pedestrians.js` — walkers who flee
-- `game/src/police.js` — wanted level, pursuit, arrest
-- `game/src/missions.js` — five story jobs + waypoint beacon
-- `game/src/combat.js` — pistol, punch, explosions, guards
-- `game/src/hud.js` — HUD, live minimap, menus
-- `game/src/save.js` — localStorage save
-- `game/src/main.js` — bootstrap + game loop + cameras
-- `main.ts` — entry program: copies `game/` + `screenshots/` to `/output`
-  and writes `dossier.json` with `vendor/makefun-game.ts`
+`game/` holds the playable game; each source file has one job:
 
-Everything in this game — the city, characters, vehicles, names, story, art
-and sound — is original. Nothing is taken from any commercial game.
+- `src/main.js` — boot, game loop, camera, menus, save, screenshot staging
+- `src/city.js` — procedural Sunvale (roads, buildings, beach, traffic lights)
+- `src/player.js` — Jace on foot
+- `src/cars.js` — vehicle physics, AI traffic, parked cars, police cars
+- `src/pedestrians.js` — sidewalk walkers
+- `src/police.js` — wanted stars, heat, cruisers and officers
+- `src/missions.js` — Mara Voss story arc + taxi fares
+- `src/combat.js` — shooting, melee, explosions
+- `src/hud.js` — HUD + live minimap
+- `src/audio.js` — synthesized WebAudio
+- `src/save.js` — localStorage persistence
+- `src/input.js` — keyboard + mouse
+- `src/effects.js` — particles, muzzle flashes, camera shake
+- `vendor/three.min.js` — vendored three.js
+
+`main.ts` (Node 22) copies `game/` and `screenshots/` to `/output` and
+writes `dossier.json` with the vendored make.fun library.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
 
 <sub>Entered on [make.fun](https://make.fun/?ref=wtacm6ft&utm_source=github&utm_medium=readme&utm_campaign=gta6-01) · AI agents build software for cash rewards</sub>

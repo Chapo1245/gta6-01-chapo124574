@@ -1,51 +1,63 @@
-// Sunvale Heat — entry program for gta6-01 (fresh code, round 2).
-// Copies game/ + screenshots/ into /output (or MAKEFUN_OUTPUT_DIR) and
-// writes /output/dossier.json with buildDossier from vendor/makefun-game.ts.
-// Standard library only; deterministic: same repo state, same bytes out.
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildDossier } from "./vendor/makefun-game.ts";
+// Sunvale Heat — gta6-01 entry program (Node 22, standard library only).
+// The game lives in game/ as plain static files a desktop browser loads offline
+// (game/index.html plus its ES modules, three.js vendored under game/vendor/).
+// This program hands it in: it copies game/ and screenshots/ from beside this
+// file to /output and writes /output/dossier.json with the vendored make.fun
+// library, the summary the judge reads.
+//
+// Serve it locally with a static server over game/, then open index.html.
+// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
+//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-const REPO_ROOT = path.dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = process.env.MAKEFUN_OUTPUT_DIR || "/output";
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { buildDossier } from './vendor/makefun-game.ts';
 
-// Gate caps for gta6-01 (from the kit's RULES.txt / gate reference).
-const CAPS = {
-  text_max_bytes: 163840,
-  dossier_max_bytes: 1572864,
-  game_max_entries: 993,
-  game_max_bytes: 50331648,
-  index_max_bytes: 1048576,
-  screenshots_max: 4,
-  screenshot_max_bytes: 262144,
-  screenshot_max_long_side: 1280,
-  screenshot_min_short_side: 480
-};
+const here = fileURLToPath(new URL('.', import.meta.url));
+const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-function main(): void {
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  const gameSrc = path.join(REPO_ROOT, "game");
-  const shotsSrc = path.join(REPO_ROOT, "screenshots");
-  // Clear previous copies first so a removed file can never linger in /output.
-  fs.rmSync(path.join(OUT_DIR, "game"), { recursive: true, force: true });
-  fs.rmSync(path.join(OUT_DIR, "screenshots"), { recursive: true, force: true });
-  fs.cpSync(gameSrc, path.join(OUT_DIR, "game"), { recursive: true, force: true });
-  fs.cpSync(shotsSrc, path.join(OUT_DIR, "screenshots"), { recursive: true, force: true });
-  const dossier = buildDossier(OUT_DIR, CAPS);
-  fs.writeFileSync(path.join(OUT_DIR, "dossier.json"), dossier);
-  const gameFiles = countFiles(path.join(OUT_DIR, "game"));
-  const shotFiles = fs.readdirSync(path.join(OUT_DIR, "screenshots")).filter((f) => !f.startsWith("."));
-  console.log("sunvale-heat: wrote " + OUT_DIR + " (game files: " + gameFiles + ", screenshots: " + shotFiles.length + ", dossier bytes: " + dossier.length + ")");
+// Fail fast with a clear message instead of handing in a broken entry:
+// the gate rejects an entry with no index.html or with fewer than 3
+// screenshots, so catch that here before copying anything.
+if (!existsSync(join(here, 'game', 'index.html'))) {
+  throw new Error('game/index.html is missing — the game cannot be entered without it');
+}
+const shotDir = join(here, 'screenshots');
+const shotCount = existsSync(shotDir)
+  ? readdirSync(shotDir).filter((f) => /\.(png|jpe?g)$/i.test(f) && statSync(join(shotDir, f)).isFile()).length
+  : 0;
+if (shotCount < 3 || shotCount > 4) {
+  throw new Error(`screenshots/ must hold 3 or 4 images, found ${shotCount}`);
 }
 
-function countFiles(dir: string): number {
-  let n = 0;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) n += countFiles(path.join(dir, entry.name));
-    else n += 1;
-  }
-  return n;
+mkdirSync(out, { recursive: true });
+cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
+mkdirSync(join(out, 'screenshots'), { recursive: true });
+if (existsSync(join(here, 'screenshots'))) {
+  cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 }
 
-main();
+// The scorer's own caps (reference/gate.json): only text_max_bytes shapes the
+// bytes; the others refuse an entry the scorer would refuse (more than 4
+// screenshots or one over 256 KiB; more than 993 files in game/ or 48 MiB of
+// game files in all, or a path under game/ over 1000 bytes: game/ counts
+// beside /output's own 1000-entry cap, its screenshots/ and dossier.json).
+writeFileSync(
+  join(out, 'dossier.json'),
+  buildDossier(out, {
+    text_max_bytes: 163840,
+    screenshots: { max: 4, max_bytes: 262144 },
+    game_max_files: 993,
+    game_max_bytes: 50331648,
+    game_path_max_bytes: 1000,
+  }),
+);
+
+// Report what was handed in, so a local run shows its shape at a glance.
+const gameFiles = readdirSync(join(out, 'game'), { recursive: true });
+const shotFiles = existsSync(join(out, 'screenshots'))
+  ? readdirSync(join(out, 'screenshots')).filter((f) => /\.(png|jpe?g)$/i.test(f) && statSync(join(out, 'screenshots', f)).isFile())
+  : [];
+const dossierBytes = statSync(join(out, 'dossier.json')).size;
+console.log(`Sunvale Heat: ${gameFiles.length} game entries, ${shotFiles.length} screenshots, dossier ${dossierBytes} bytes -> ${out}`);

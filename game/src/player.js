@@ -1,94 +1,146 @@
-// Sunvale Heat — on-foot character (fresh code, round 2).
-// Third-person walker: WASD relative to camera, Shift run, Space jump,
-// punch (F), pistol (click/K), E to enter/exit cars. Simple gravity +
-// building collision; health regen when no crime happened recently.
-var Player = {
-  build: function (scene) {
-    var group = new THREE.Group();
-    // Jace: teal jacket, dark jeans, cap.
-    var legs = boxMesh(0.62, 0.85, 0.4, 0x2a3242, 0, 0.42, 0);
-    var torso = boxMesh(0.78, 0.95, 0.46, 0x1f8a8a, 0, 1.32, 0);
-    var armL = boxMesh(0.22, 0.8, 0.24, 0x1f8a8a, -0.52, 1.3, 0);
-    var armR = boxMesh(0.22, 0.8, 0.24, 0x1f8a8a, 0.52, 1.3, 0);
-    var head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.32, 12, 10),
-      new THREE.MeshLambertMaterial({ color: 0xe8b98a })
-    );
-    head.position.set(0, 2.05, 0);
-    var cap = cylMesh(0.34, 0.34, 0.12, 0xd83a2e, 0, 2.3, 0, 12);
-    var brim = boxMesh(0.5, 0.06, 0.34, 0xd83a2e, 0, 2.26, 0.3);
-    group.add(legs, torso, armL, armR, head, cap, brim);
-    // Blob shadow.
-    var sh = new THREE.Mesh(
-      new THREE.CircleGeometry(0.55, 12),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
-    );
-    sh.rotation.x = -Math.PI / 2;
-    sh.position.y = 0.03;
-    group.add(sh);
-    group.position.set(0, 0, 26);
-    scene.add(group);
-    SV.player = {
-      group: group, torso: torso, armR: armR,
-      pos: group.position, vel: new THREE.Vector3(),
-      yaw: 0, speed: 0, grounded: true, vy: 0,
-      walkPhase: 0, punchT: 0, shootT: 0, ammo: 12
-    };
-  },
+// player.js — Jace on foot: walk, run, jump, punch, shoot, steal cars.
+// One job: the character you control when not driving.
+const THREE = window.THREE;
+import { Combat } from './combat.js';
+import { AudioSys } from './audio.js';
 
-  update: function (dt) {
-    var p = SV.player;
-    if (!p || SV.mode !== "play") return;
-    var axes = Input.moveAxes();
-    var run = Input.isDown("ShiftLeft") || Input.isDown("ShiftRight");
-    var maxSpeed = run ? 9.5 : 5.2;
-    // Movement relative to camera yaw.
-    var cy = SV.camYaw;
-    var fx = -Math.sin(cy), fz = -Math.cos(cy);
-    var rx = -fz, rz = fx;
-    var mx = fx * axes.f + rx * axes.s;
-    var mz = fz * axes.f + rz * axes.s;
-    var ml = Math.sqrt(mx * mx + mz * mz);
+function makeJaceMesh() {
+  const g = new THREE.Group();
+  const jacket = new THREE.MeshLambertMaterial({ color: 0xe86a1c }); // orange jacket
+  const skin = new THREE.MeshLambertMaterial({ color: 0xe8b98a });
+  const jeans = new THREE.MeshLambertMaterial({ color: 0x2c4a6b });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.9, 0.36), jacket);
+  body.position.y = 1.18; body.castShadow = true; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 10), skin);
+  head.position.y = 1.84; head.castShadow = true; g.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
+    new THREE.MeshLambertMaterial({ color: 0x1a1a1a }));
+  hair.position.y = 1.88; g.add(hair);
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.75, 0.26), jeans);
+  legL.position.set(0, 0.4, 0.15); g.add(legL);
+  const legR = legL.clone(); legR.position.z = -0.15; g.add(legR);
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.22), jacket);
+  armL.position.set(0, 1.18, 0.3); g.add(armL);
+  const armR = armL.clone(); armR.position.z = -0.3; g.add(armR);
+  // pistol in right hand
+  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.1),
+    new THREE.MeshLambertMaterial({ color: 0x111111 }));
+  gun.position.set(0.22, 0.85, -0.3); g.add(gun);
+  g.userData = { legL, legR, armL, armR, gun };
+  return g;
+}
+
+export const Player = {
+  mesh: null,
+  pos: null,
+  heading: 0,
+  health: 100,
+  ammo: 12,
+  reserveAmmo: 48,
+  velY: 0,
+  onGround: true,
+  invulnUntil: 0,
+  punchAt: 0,
+  shootAt: 0,
+  walkPhase: 0,
+  lastDamageAt: -100,
+  init(world) {
+    this.world = world;
+    this.mesh = makeJaceMesh();
+    this.mesh.position.set(20, 0, 20);
+    this.pos = this.mesh.position;
+    this.heading = Math.PI * 0.75;
+    this.health = 100; this.ammo = 12; this.reserveAmmo = 48;
+    world.scene.add(this.mesh);
+  },
+  enterCar(car, world) {
+    world.playerCar = car;
+    car.driver = 'player'; car.parked = false;
+    this.mesh.visible = false;
+    world.police.addHeat(1, 'grand theft auto');
+    AudioSys.engine(0, true);
+    if (world.hud) world.hud.toast(`You stole the ${car.def.name} — the law noticed.`, 3);
+  },
+  exitCar(world) {
+    const car = world.playerCar;
+    if (!car) return;
+    world.playerCar = null;
+    car.driver = null; car.parked = true; car.speed = 0;
+    // step out to the side of the car
+    const side = { x: Math.sin(car.heading), z: Math.cos(car.heading) };
+    this.pos.set(car.pos.x + side.x * 2.4, 0, car.pos.z + side.z * 2.4);
+    this.heading = car.heading;
+    this.mesh.visible = true;
+    AudioSys.engine(0, false);
+  },
+  update(dt, world) {
+    if (world.playerCar) return; // driving; car handles movement
+    const now = performance.now() / 1000;
+    const { Input } = world;
+    const ax = Input.axis();
+    const running = Input.isDown('ShiftLeft') || Input.isDown('ShiftRight');
+    const speed = running ? 8.2 : 5.0;
+    // camera-relative movement
+    const cy = world.camYaw;
+    const fx = Math.sin(cy), fz = Math.cos(cy);
+    const rx = Math.cos(cy), rz = -Math.sin(cy);
+    let mx = fx * ax.f + rx * ax.s;
+    let mz = fz * ax.f + rz * ax.s;
+    const ml = Math.hypot(mx, mz);
     if (ml > 0.01) {
       mx /= ml; mz /= ml;
-      p.vel.x = lerp(p.vel.x, mx * maxSpeed, 1 - Math.pow(0.001, dt));
-      p.vel.z = lerp(p.vel.z, mz * maxSpeed, 1 - Math.pow(0.001, dt));
-      p.yaw = Math.atan2(mx, mz);
-    } else {
-      p.vel.x = lerp(p.vel.x, 0, 1 - Math.pow(0.0001, dt));
-      p.vel.z = lerp(p.vel.z, 0, 1 - Math.pow(0.0001, dt));
+      this.heading = Math.atan2(-mz, mx);
+      this.pos.x += mx * speed * dt;
+      this.pos.z += mz * speed * dt;
+      this.walkPhase += dt * speed * 1.6;
     }
-    // Jump + gravity.
-    if (Input.isDown("Space") && p.grounded) { p.vy = 7.5; p.grounded = false; }
-    p.vy -= 22 * dt;
-    p.pos.y += p.vy * dt;
-    if (p.pos.y <= 0) { p.pos.y = 0; p.vy = 0; p.grounded = true; }
-    // Integrate + building collision.
-    var nx = p.pos.x + p.vel.x * dt, nz = p.pos.z + p.vel.z * dt;
-    var res = resolveBuildingCollision(nx, nz, 0.6);
-    p.pos.x = clamp(res.x, -City.bounds, City.bounds);
-    p.pos.z = clamp(res.z, -City.bounds, City.bounds + 40);
-    p.speed = Math.sqrt(p.vel.x * p.vel.x + p.vel.z * p.vel.z);
-    p.group.rotation.y = p.yaw;
-    // Walk swing.
-    p.walkPhase += p.speed * dt * 1.6;
-    var swing = Math.sin(p.walkPhase) * clamp(p.speed / 9, 0, 1) * 0.45;
-    p.torso.rotation.x = swing * 0.12;
-    p.armR.rotation.x = p.punchT > 0 ? -1.4 : -swing;
-    if (p.punchT > 0) p.punchT -= dt;
-    if (p.shootT > 0) p.shootT -= dt;
-    // Slow health regen when the heat is off.
-    if (SV.wanted === 0 && SV.health < SV.maxHealth && SV.time - SV.lastCrimeAt > 12) {
-      SV.health = Math.min(SV.maxHealth, SV.health + 2.2 * dt);
+    // building collision
+    const hit = world.city.collides(this.pos.x, this.pos.z, 0.7);
+    if (hit) {
+      const cx = Math.max(hit.minX, Math.min(this.pos.x, hit.maxX));
+      const cz = Math.max(hit.minZ, Math.min(this.pos.z, hit.maxZ));
+      const dx = this.pos.x - cx, dz = this.pos.z - cz;
+      const d = Math.hypot(dx, dz) || 0.01;
+      this.pos.x = cx + (dx / d) * 0.7;
+      this.pos.z = cz + (dz / d) * 0.7;
+    }
+    const cl = world.city.clampToWorld(this.pos.x, this.pos.z);
+    this.pos.x = cl.x; this.pos.z = cl.z;
+    // jump + gravity
+    if (Input.isDown('Space') && this.onGround) {
+      this.velY = 8.5; this.onGround = false;
+    }
+    if (!this.onGround) {
+      this.velY -= 24 * dt;
+      this.pos.y += this.velY * dt;
+      if (this.pos.y <= 0) { this.pos.y = 0; this.velY = 0; this.onGround = true; }
+    }
+    // walk swing
+    const s = ml > 0.01 ? Math.sin(this.walkPhase) * 0.55 : 0;
+    const u = this.mesh.userData;
+    u.legL.rotation.x = s; u.legR.rotation.x = -s;
+    u.armL.rotation.x = -s * 0.6; u.armR.rotation.x = s * 0.6;
+    this.mesh.rotation.y = this.heading;
+    // punch
+    if (Input.isDown('KeyF') && now - this.punchAt > 0.4) {
+      this.punchAt = now;
+      Combat.punch(world);
+    }
+    // shoot
+    if ((Input.isMouseDown() || Input.consumeClick()) && now - this.shootAt > 0.18) {
+      this.shootAt = now;
+      Combat.shoot(world);
+    }
+    // reload
+    if (Input.isDown('KeyR') && this.ammo < 12 && this.reserveAmmo > 0) {
+      const need = 12 - this.ammo;
+      const take = Math.min(need, this.reserveAmmo);
+      this.ammo += take; this.reserveAmmo -= take;
+      AudioSys.click();
+    }
+    // health regen after 5s calm
+    if (now - this.lastDamageAt > 5 && this.health < 100) {
+      this.health = Math.min(100, this.health + 2.5 * dt);
     }
   },
-
-  hurt: function (amount) {
-    SV.health -= amount;
-    SV.hud.flashDamage();
-    if (SV.health <= 0) {
-      SV.health = 0;
-      Game.wasted();
-    }
-  }
 };

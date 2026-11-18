@@ -3,137 +3,80 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sunvale Heat — an open-world crime game</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0f14; font-family: "Segoe UI", Arial, sans-serif; }
-  #game-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  .hidden { display: none !important; }
-  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; z-index: 5; }
-  .panel { background: rgba(8, 14, 20, 0.62); border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 8px 12px; }
-  #hud-top-left { position: absolute; top: 14px; left: 14px; min-width: 210px; }
-  #cash { font-size: 26px; font-weight: 800; color: #7dff9a; text-shadow: 0 2px 4px #000; }
-  #health-bar { width: 180px; height: 10px; background: rgba(0,0,0,0.55); border-radius: 5px; margin-top: 5px; overflow: hidden; }
-  #health-fill { height: 100%; width: 100%; background: #2ecc71; }
-  #ammo { font-size: 13px; margin-top: 5px; color: #ffd76e; text-shadow: 0 1px 3px #000; }
-  #hud-top-right { position: absolute; top: 14px; right: 14px; text-align: right; }
-  #stars { font-size: 26px; letter-spacing: 2px; color: rgba(255,255,255,0.35); text-shadow: 0 2px 4px #000; }
-  #stars.hot { color: #ffd76e; }
-  #clock { font-size: 20px; font-weight: 700; text-shadow: 0 2px 4px #000; }
-  #objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); max-width: 620px; text-align: center; }
-  #objective-text { font-size: 15px; font-weight: 600; text-shadow: 0 2px 4px #000; }
-  #speedo-box { position: absolute; right: 16px; bottom: 210px; text-align: right; }
-  #speedo { font-size: 34px; font-weight: 800; text-shadow: 0 2px 6px #000; }
-  #boost-bar { width: 150px; height: 8px; background: rgba(0,0,0,0.55); border-radius: 4px; margin-top: 4px; overflow: hidden; }
-  #boost-fill { height: 100%; width: 100%; background: #ff9f1c; }
-  #minimap { position: absolute; right: 16px; bottom: 16px; width: 180px; height: 180px; border: 2px solid rgba(255,255,255,0.35); border-radius: 6px; background: #0e1a24; }
-  #prompt { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 600; padding: 8px 16px; display: none; text-shadow: 0 1px 3px #000; }
-  #prompt.show { display: block; }
-  #toast { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; padding: 10px 18px; opacity: 0; transition: opacity 0.25s; text-shadow: 0 1px 3px #000; }
-  #toast.show { opacity: 1; }
-  #reward-banner { position: absolute; top: 26%; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 800; color: #ffd76e; padding: 12px 26px; opacity: 0; transition: opacity 0.3s; text-shadow: 0 2px 6px #000; }
-  #reward-banner.show { opacity: 1; }
-  #mission-card { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); text-align: center; min-width: 420px; opacity: 0; transition: opacity 0.3s; }
-  #mission-card.show { opacity: 1; }
-  #mission-title { font-size: 26px; font-weight: 800; color: #ffd76e; }
-  #mission-brief { font-size: 15px; margin-top: 6px; line-height: 1.45; }
-  #mission-reward { font-size: 14px; margin-top: 8px; color: #7dff9a; font-weight: 700; }
-  #damage-flash { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,0,0,0.45) 100%); opacity: 0; transition: opacity 0.15s; z-index: 6; }
-  #damage-flash.show { opacity: 1; }
-  #crosshair { position: fixed; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 4px #000; z-index: 5; display: none; pointer-events: none; }
-  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; background: rgba(5, 10, 16, 0.55); }
-  .card { background: rgba(10, 18, 26, 0.92); border: 1px solid rgba(255,215,110,0.4); border-radius: 14px; padding: 30px 38px; max-width: 620px; color: #fff; text-align: center; box-shadow: 0 10px 50px rgba(0,0,0,0.6); }
-  .card h1 { font-size: 46px; font-weight: 900; letter-spacing: 3px; color: #ffd76e; text-shadow: 0 3px 0 #b3541e; }
-  .card h2 { font-size: 15px; font-weight: 600; color: #9fd4ff; letter-spacing: 2px; margin-top: 2px; }
-  .card p { font-size: 15px; line-height: 1.55; margin-top: 14px; color: #dfe8ef; }
-  .menu-mission { font-size: 14px; text-align: left; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .menu-mission.done { color: #7dff9a; }
-  #menu-missions { margin-top: 14px; }
-  .controls { font-size: 13px; color: #b9c8d4; margin-top: 14px; line-height: 1.7; }
-  .btn { pointer-events: auto; cursor: pointer; display: inline-block; margin: 14px 6px 0; padding: 12px 26px; font-size: 17px; font-weight: 800; color: #14100a; background: #ffd76e; border: none; border-radius: 8px; }
-  .btn:hover { background: #ffcf4d; }
-  .btn.ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.5); }
-  #end-title { font-size: 52px; font-weight: 900; letter-spacing: 4px; }
-  #end-title.busted { color: #4da6ff; }
-  #end-title.wasted { color: #ff5a4e; }
-</style>
+<title>Sunvale Heat — Open World</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="vendor/three.min.js"></script>
 </head>
 <body>
-<canvas id="game-canvas"></canvas>
+<div id="app"></div>
 
+<!-- HUD -->
 <div id="hud" class="hidden">
-  <div id="hud-top-left" class="panel">
-    <div id="cash">$250</div>
-    <div id="health-bar"><div id="health-fill"></div></div>
-    <div id="ammo">Ammo 12/12</div>
-  </div>
-  <div id="hud-top-right" class="panel">
-    <div id="stars">☆☆☆☆☆</div>
-    <div id="clock">08:24</div>
-  </div>
-  <div id="objective" class="panel"><span id="objective-text"></span></div>
-  <div id="speedo-box"><div id="speedo">0 MPH</div><div id="boost-box"><div id="boost-bar"><div id="boost-fill"></div></div></div></div>
-  <canvas id="minimap" width="180" height="180"></canvas>
-  <div id="prompt" class="panel"></div>
-  <div id="toast" class="panel"></div>
-  <div id="reward-banner" class="panel"><span id="reward-text"></span></div>
-  <div id="mission-card" class="panel">
-    <div id="mission-title"></div>
-    <div id="mission-brief"></div>
-    <div id="mission-reward"></div>
-  </div>
-</div>
-<div id="damage-flash"></div>
-<div id="crosshair"></div>
-
-<div id="menu" class="overlay">
-  <div class="card">
-    <h1>SUNVALE HEAT</h1>
-    <h2>AN OPEN-WORLD CRIME GAME</h2>
-    <p>Sunvale City is yours, Jace. Mara Voss has five jobs for you — steal the
-    wheels, outrun the beach, shake the law, crack the warehouse, and take the
-    bank. Drive anything, fight anyone, and don't get caught.</p>
-    <div id="menu-missions"></div>
-    <div class="controls">
-      WASD move / drive &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; Shift run / boost &nbsp;·&nbsp; Space jump / handbrake<br>
-      E enter &amp; exit car &nbsp;·&nbsp; Click / K shoot &nbsp;·&nbsp; F punch &nbsp;·&nbsp; R reload &nbsp;·&nbsp; P pause &nbsp;·&nbsp; M mute
+  <div id="hud-top">
+    <div id="hud-left">
+      <div id="cash">$0</div>
+      <div id="health"><div id="health-fill"></div></div>
+      <div id="wanted"><span id="wanted-label">WANTED</span> <span id="stars">☆☆☆☆☆</span></div>
     </div>
-    <button id="btn-start" class="btn">START NEW GAME</button>
-    <button id="btn-continue" class="btn ghost">CONTINUE</button>
+    <div id="hud-right"><div id="clock">09:00</div></div>
+  </div>
+  <div id="objective-box"><span id="objective"></span> <span id="obj-dist"></span></div>
+  <canvas id="minimap" width="220" height="220"></canvas>
+  <div id="speedo">0 MPH</div>
+  <div id="ammo">AMMO 12 / 48</div>
+  <div id="crosshair"><span></span></div>
+  <div id="message"></div>
+  <div id="help">WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; E enter / exit car &nbsp;·&nbsp; Click shoot &nbsp;·&nbsp; F punch &nbsp;·&nbsp; R reload &nbsp;·&nbsp; Shift run / boost &nbsp;·&nbsp; Space jump / handbrake &nbsp;·&nbsp; M next job &nbsp;·&nbsp; P pause</div>
+</div>
+<div id="damage"></div>
+
+<!-- Start screen -->
+<div id="menu">
+  <div class="menu-inner">
+    <div class="menu-kicker">A SUN-SOAKED OPEN WORLD</div>
+    <h1>SUNVALE<br>HEAT</h1>
+    <p class="menu-story">Jace rolls into Sunvale with empty pockets and a fast mouth.
+      Mara Voss runs the streets — five jobs, one big score, and every cop
+      in the city between you and the money. Steal it. Drive it. Survive it.</p>
+    <div id="mission-list"></div>
+    <button id="play-btn">▶ &nbsp;START ENGINE</button>
+    <button id="continue-btn" class="hidden">CONTINUE — <span id="continue-info"></span></button>
+    <div class="menu-controls">
+      <div><b>WASD</b> move / drive</div><div><b>Mouse</b> look &amp; aim</div>
+      <div><b>E</b> steal / exit car</div><div><b>Click</b> shoot &nbsp; <b>F</b> punch</div>
+      <div><b>Shift</b> run / boost</div><div><b>Space</b> jump / handbrake</div>
+      <div><b>M</b> next job</div><div><b>P</b> pause &nbsp; <b>N</b> mute</div>
+    </div>
+    <div class="menu-foot">Sunvale Heat — an original game. No real city, person or brand.</div>
   </div>
 </div>
 
+<!-- Pause -->
 <div id="pause" class="overlay hidden">
-  <div class="card">
-    <h1 style="font-size:32px">PAUSED</h1>
-    <p>Sunvale waits for no one — except right now.</p>
-    <button id="btn-resume" class="btn">RESUME</button>
-    <button id="btn-restart" class="btn ghost">RESTART JOB</button>
-    <button id="btn-quit-menu" class="btn ghost">MAIN MENU</button>
+  <div class="overlay-inner">
+    <h2>PAUSED</h2>
+    <p>Sunvale waits for no one. Except now.</p>
+    <button id="resume-btn">RESUME</button>
+    <button id="quit-btn">QUIT TO MENU</button>
   </div>
 </div>
 
-<div id="end-screen" class="overlay hidden">
-  <div class="card">
-    <div id="end-title">BUSTED</div>
-    <p id="end-text"></p>
-    <button id="btn-end-ok" class="btn">GET BACK OUT THERE</button>
+<!-- Busted / wasted -->
+<div id="busted" class="overlay hidden">
+  <div class="overlay-inner">
+    <h2>BUSTED</h2>
+    <p>The Sunvale PD caught up with you. Bail cost you <span id="busted-fine"></span>.</p>
+    <button id="busted-btn">BACK ON THE STREETS</button>
+  </div>
+</div>
+<div id="wasted" class="overlay hidden">
+  <div class="overlay-inner">
+    <h2>WASTED</h2>
+    <p>You woke up at General Hospital, lighter by <span id="wasted-fine"></span>.</p>
+    <button id="wasted-btn">WALK IT OFF</button>
   </div>
 </div>
 
-<script src="vendor/three.min.js"></script>
-<script src="src/util.js"></script>
-<script src="src/input.js"></script>
-<script src="src/audio.js"></script>
-<script src="src/city.js"></script>
-<script src="src/player.js"></script>
-<script src="src/vehicles.js"></script>
-<script src="src/pedestrians.js"></script>
-<script src="src/police.js"></script>
-<script src="src/missions.js"></script>
-<script src="src/combat.js"></script>
-<script src="src/hud.js"></script>
-<script src="src/save.js"></script>
-<script src="src/main.js"></script>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

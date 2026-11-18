@@ -1,0 +1,52 @@
+/* Sunvale Heat — HUD + menu styling. No external fonts or images. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0e18; }
+body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #fff; }
+#app, #app canvas { position: fixed; inset: 0; display: block; }
+.hidden { display: none !important; }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+#hud-top { position: absolute; top: 14px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+#cash { font-size: 30px; font-weight: 800; color: #7dff9e; text-shadow: 0 2px 6px rgba(0,0,0,0.8); letter-spacing: 1px; }
+#health { width: 210px; height: 12px; margin-top: 6px; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.5); border-radius: 6px; overflow: hidden; }
+#health-fill { height: 100%; width: 100%; background: #37d67a; transition: width 0.2s; }
+#wanted { margin-top: 7px; font-size: 15px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 2px 5px rgba(0,0,0,0.9); }
+#stars { font-size: 22px; letter-spacing: 3px; color: #ffd94a; text-shadow: 0 0 8px rgba(255,200,40,0.7); }
+#clock { font-size: 26px; font-weight: 700; text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+#objective-box { position: absolute; top: 118px; left: 16px; max-width: 420px; background: rgba(0,0,0,0.5); border-left: 4px solid #ffd94a; padding: 8px 12px; border-radius: 4px; font-size: 16px; font-weight: 600; text-shadow: 0 1px 3px #000; }
+#obj-dist { color: #ffd94a; font-weight: 800; margin-left: 8px; }
+#minimap { position: absolute; left: 16px; bottom: 16px; border: 2px solid rgba(255,255,255,0.65); border-radius: 50%; background: rgba(10,14,24,0.8); box-shadow: 0 4px 18px rgba(0,0,0,0.6); }
+#speedo { position: absolute; right: 22px; bottom: 64px; font-size: 34px; font-weight: 800; font-style: italic; text-shadow: 0 2px 8px rgba(0,0,0,0.9); }
+#ammo { position: absolute; right: 22px; bottom: 110px; font-size: 17px; font-weight: 700; text-shadow: 0 2px 5px rgba(0,0,0,0.9); }
+#crosshair { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; pointer-events: none; }
+#crosshair span { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: #fff; border-radius: 50%; box-shadow: 0 0 4px #000; }
+#crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 3px #000; }
+#crosshair::before { left: 12px; top: 0; width: 2px; height: 26px; }
+#crosshair::after { top: 12px; left: 0; height: 2px; width: 26px; }
+#message { position: absolute; top: 26%; left: 50%; transform: translateX(-50%); max-width: 640px; text-align: center; font-size: 21px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,0.95); background: rgba(0,0,0,0.45); padding: 10px 18px; border-radius: 6px; opacity: 0; transition: opacity 0.4s; }
+#help { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 12.5px; color: rgba(255,255,255,0.75); text-shadow: 0 1px 3px #000; white-space: nowrap; }
+#damage { position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0; transition: opacity 0.25s; background: radial-gradient(ellipse at center, transparent 55%, rgba(220,20,20,0.55) 100%); }
+
+/* ---------- Menu & overlays ---------- */
+#menu { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(10,16,30,0.25) 0%, rgba(10,16,30,0.55) 55%, rgba(20,10,20,0.75) 100%); }
+.menu-inner { max-width: 680px; padding: 30px 40px; text-align: center; }
+.menu-kicker { letter-spacing: 5px; font-size: 13px; font-weight: 700; color: #ffd94a; margin-bottom: 6px; }
+#menu h1 { font-family: 'Arial Black', Arial, sans-serif; font-size: 84px; line-height: 0.92; letter-spacing: 2px; color: #fff; text-shadow: 0 4px 0 #e86a1c, 0 10px 28px rgba(0,0,0,0.8); margin-bottom: 14px; }
+.menu-story { font-size: 17px; line-height: 1.5; color: #f2ede4; text-shadow: 0 1px 4px #000; margin-bottom: 16px; }
+#mission-list { text-align: left; margin: 0 auto 18px; max-width: 520px; font-size: 14.5px; line-height: 1.65; }
+#mission-list .done { color: #7dff9e; text-decoration: line-through; }
+#mission-list .next { color: #ffd94a; font-weight: 700; }
+#mission-list .todo { color: rgba(255,255,255,0.75); }
+#menu button, .overlay button { pointer-events: auto; cursor: pointer; font-size: 19px; font-weight: 800; letter-spacing: 1px; color: #1a1206; background: linear-gradient(180deg, #ffe066, #f7b731); border: none; border-radius: 8px; padding: 14px 34px; margin: 6px; box-shadow: 0 4px 0 #a86e00, 0 8px 20px rgba(0,0,0,0.5); }
+#menu button:hover, .overlay button:hover { filter: brightness(1.08); }
+#menu button:active, .overlay button:active { transform: translateY(3px); box-shadow: 0 1px 0 #a86e00; }
+#continue-btn { background: linear-gradient(180deg, #9be7ff, #4aa8d8); box-shadow: 0 4px 0 #1c5a7a, 0 8px 20px rgba(0,0,0,0.5); }
+.menu-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; max-width: 520px; margin: 16px auto 0; font-size: 13.5px; color: rgba(255,255,255,0.85); text-align: left; }
+.menu-controls b { color: #ffd94a; }
+.menu-foot { margin-top: 16px; font-size: 12px; color: rgba(255,255,255,0.55); }
+.overlay { position: fixed; inset: 0; z-index: 11; display: flex; align-items: center; justify-content: center; background: rgba(8,10,18,0.72); }
+.overlay-inner { text-align: center; max-width: 520px; padding: 30px; }
+.overlay h2 { font-family: 'Arial Black', Arial, sans-serif; font-size: 64px; letter-spacing: 3px; text-shadow: 0 4px 0 rgba(0,0,0,0.6); margin-bottom: 10px; }
+#busted h2 { color: #6ea8ff; } #wasted h2 { color: #e5484d; }
+.overlay p { font-size: 17px; margin-bottom: 18px; color: #eee; }

@@ -1,47 +1,34 @@
-// Sunvale Heat — localStorage save (fresh code, round 2).
-// Saves cash, health, mission progress, position and clock. Loaded from the
-// start screen's Continue button.
-var Save = {
-  save: function () {
-    try {
-      var data = {
-        cash: Math.floor(SV.cash),
-        health: Math.round(SV.health),
-        missionIndex: SV.missionIndex,
-        clockMin: Math.round(SV.clockMin),
-        px: SV.player ? Math.round(SV.player.pos.x) : 0,
-        pz: SV.player ? Math.round(SV.player.pos.z) : 26,
-        time: Math.round(SV.time)
-      };
-      localStorage.setItem(SV.saveSlot, JSON.stringify(data));
-      return true;
-    } catch (e) { return false; }
-  },
+// save.js — localStorage persistence for Sunvale Heat. One job: save + load.
+const KEY = 'sunvale-heat-save-v3';
 
-  load: function () {
+export const SaveSys = {
+  load() {
     try {
-      var raw = localStorage.getItem(SV.saveSlot);
+      const raw = localStorage.getItem(KEY);
       if (!raw) return null;
-      var d = JSON.parse(raw);
-      if (typeof d.cash !== "number" || typeof d.missionIndex !== "number") return null;
-      return d;
-    } catch (e) { return null; }
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== 'object') return null;
+      return {
+        cash: typeof d.cash === 'number' ? d.cash : 0,
+        missionsDone: Array.isArray(d.missionsDone) ? d.missionsDone : [],
+        health: typeof d.health === 'number' ? d.health : 100,
+        ammo: typeof d.ammo === 'number' ? d.ammo : 48,
+        playMinutes: typeof d.playMinutes === 'number' ? d.playMinutes : 0,
+      };
+    } catch (_) { return null; }
   },
-
-  has: function () { return this.load() !== null; },
-
-  clear: function () {
-    try { localStorage.removeItem(SV.saveSlot); } catch (e) {}
+  save(data) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        cash: data.cash | 0,
+        missionsDone: data.missionsDone || [],
+        health: data.health | 0,
+        ammo: data.ammo | 0,
+        playMinutes: data.playMinutes | 0,
+        savedAt: Date.now(),
+      }));
+      return true;
+    } catch (_) { return false; }
   },
-
-  apply: function (d) {
-    SV.cash = d.cash;
-    SV.health = d.health;
-    SV.missionIndex = d.missionIndex;
-    SV.clockMin = d.clockMin;
-    SV.time = d.time || 0;
-    SV.player.pos.set(d.px, 0, d.pz);
-    SV.wanted = 0;
-    SV.wantedHeat = 0;
-  }
+  clear() { try { localStorage.removeItem(KEY); } catch (_) {} },
 };
