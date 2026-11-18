@@ -1,6 +1,8 @@
 // Canvas-painted textures, generated at boot: building facades with lit and
 // dark windows, shop awnings and signs, the asphalt road with lane dashes,
-// sand and the boardwalk. Nothing is loaded from a file.
+// sand and the boardwalk. Nothing is loaded from a file. The palette is warm
+// and sun-bleached on purpose: terracotta, sand, pale blue and cream, so the
+// city reads as a coastal town at golden hour even before the lights come on.
 function canvasTexture(width, height, paint) {
   const canvas = document.createElement('canvas');
   canvas.width = width;

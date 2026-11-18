@@ -20,6 +20,15 @@ export function makeRng(seed) {
     pick(list) {
       return list[Math.floor(next() * list.length)];
     },
+    // A shuffled copy of a list, for dealing out varied traffic and crowds.
+    shuffle(list) {
+      const out = list.slice();
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = Math.floor(next() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
+    },
     chance(p) {
       return next() < p;
     },

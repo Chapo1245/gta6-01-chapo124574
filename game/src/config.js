@@ -69,6 +69,10 @@ export const WANTED = {
   copSpawnRadius: 55,
   maxCruisers: 6,
   heliAtStars: 3,
+  // Busted: a cruiser must stay this close on foot for this long before the
+  // arrest sticks, so the player always has a real chance to break away.
+  bustedTimeSeconds: 4,
+  bustedRangeMetres: 3.5,
 };
 
 export const MONEY = {

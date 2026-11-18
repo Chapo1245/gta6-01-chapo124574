@@ -2,7 +2,7 @@
 // steps; the renderer paints what is there. Screens: title, play, paused,
 // wasted and busted. ?shot=cover|drive|mission|vista stages a frozen scene
 // for a screenshot instead of running the loop.
-import { CITY, MONEY, PALETTE, PLAYER, RADIO_STATIONS, STEP } from './config.js';
+import { CITY, MONEY, PALETTE, PLAYER, RADIO_STATIONS, STEP, WANTED } from './config.js';
 import { makeRng } from './random.js';
 import { buildWorld, nearestRoadPoint } from './world.js';
 import { carForward, createTraffic, makeVehicle, stepTraffic } from './vehicles.js';
@@ -466,11 +466,11 @@ function step(dt) {
   if (!player.inCar && police.stars > 0) {
     let close = false;
     for (const cop of police.cruisers) {
-      if (Math.hypot(cop.x - player.x, cop.z - player.z) < 3.5) close = true;
+      if (Math.hypot(cop.x - player.x, cop.z - player.z) < WANTED.bustedRangeMetres) close = true;
     }
     if (close) {
       player.bustedTimer += dt;
-      if (player.bustedTimer > 4) endGame('busted');
+      if (player.bustedTimer > WANTED.bustedTimeSeconds) endGame('busted');
     } else player.bustedTimer = 0;
   }
 
