@@ -47,11 +47,26 @@ export const Police = {
     }
     this.stars = Math.max(this.stars, newStars);
   },
+  ensureStars(n, reason) {
+    // Missions that promise "four stars" must deliver four stars no matter
+    // what heat the player walked in with: raise heat to the floor for n.
+    const need = (n - 1) * 20 + 1;
+    if (this.heat < need) this.heat = need;
+    this.lastCrimeAt = performance.now() / 1000;
+    const newStars = Math.max(1, Math.min(5, Math.ceil(this.heat / 20)));
+    if (newStars > this.stars) {
+      this.stars = newStars;
+      if (this.world.hud) this.world.hud.toast(`WANTED LEVEL ${this.stars} — ${reason || 'crime'}!`);
+      AudioSys.sting(false);
+    }
+    this.stars = Math.max(this.stars, newStars);
+  },
   clearWanted() {
     this.heat = 0; this.stars = 0;
     for (const c of this.cars) this.world.cars.removeCar(c);
     for (const o of this.officers) this.world.scene.remove(o.mesh);
     this.cars = []; this.officers = [];
+    if (this.world.helicopter) this.world.helicopter.clear();
     AudioSys.siren(false);
   },
   _spawnCar() {
@@ -79,10 +94,16 @@ export const Police = {
   },
   update(dt, world) {
     const now = performance.now() / 1000;
-    // heat decays when quiet and unseen
+    // the anchor: the car when driving, Jace when on foot. The R3 code
+    // chased world.player.pos, which goes stale the moment you drive.
+    const anchor = world.playerCar ? world.playerCar.pos : world.player.pos;
+    // heat decays when quiet and unseen — but the helicopter overhead
+    // keeps the player spotted, so no decay while it is up
+    const heliNear = this.world.helicopter && this.world.helicopter.active ? 30 : 1e9;
     const nearestCop = Math.min(
-      ...this.cars.map((c) => Math.hypot(c.pos.x - world.player.pos.x, c.pos.z - world.player.pos.z)),
-      ...this.officers.map((o) => Math.hypot(o.pos.x - world.player.pos.x, o.pos.z - world.player.pos.z)),
+      ...this.cars.map((c) => Math.hypot(c.pos.x - anchor.x, c.pos.z - anchor.z)),
+      ...this.officers.map((o) => Math.hypot(o.pos.x - anchor.x, o.pos.z - anchor.z)),
+      heliNear,
       1e9);
     if (now - this.lastCrimeAt > 8 && nearestCop > 45 && this.stars > 0) {
       this.heat = Math.max(0, this.heat - 5 * dt);
@@ -98,10 +119,10 @@ export const Police = {
     this.cars = this.cars.filter((c) => !c.dead);
     while (this.cars.length < wantCars && this.stars > 0) this._spawnCar();
     while (this.officers.length < wantOfficers && this.stars > 0) this._spawnOfficer();
-    // officers chase on foot
+    // officers chase on foot (toward the anchor — the car, if driving)
     for (const o of this.officers) {
       if (o.down) continue;
-      const dx = world.player.pos.x - o.pos.x, dz = world.player.pos.z - o.pos.z;
+      const dx = anchor.x - o.pos.x, dz = anchor.z - o.pos.z;
       const d = Math.hypot(dx, dz) || 1;
       const speed = 6.2;
       o.pos.x += (dx / d) * speed * dt;
@@ -129,7 +150,7 @@ export const Police = {
     }
     // despawn far units
     for (const c of [...this.cars]) {
-      if (Math.hypot(c.pos.x - world.player.pos.x, c.pos.z - world.player.pos.z) > 220) {
+      if (Math.hypot(c.pos.x - anchor.x, c.pos.z - anchor.z) > 220) {
         world.cars.removeCar(c); this.cars = this.cars.filter((x) => x !== c);
       }
     }

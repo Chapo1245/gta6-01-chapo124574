@@ -17,19 +17,45 @@ const CAR_TYPES = {
 export function buildCarMesh(type, colorHex) {
   const t = CAR_TYPES[type];
   const g = new THREE.Group();
-  const paint = new THREE.MeshLambertMaterial({ color: colorHex ?? t.color });
+  // glossy paint (Phong) instead of flat Lambert — the single biggest
+  // visual win for cars: sun glints off the bodywork.
+  const paint = new THREE.MeshPhongMaterial({ color: colorHex ?? t.color, shininess: 70, specular: 0x666666 });
   const dark = new THREE.MeshLambertMaterial({ color: 0x181a1e });
-  const glass = new THREE.MeshPhongMaterial({ color: 0x1a2c44, shininess: 120 });
+  const chrome = new THREE.MeshPhongMaterial({ color: 0xd8d8d8, shininess: 120, specular: 0xffffff });
+  const glass = new THREE.MeshPhongMaterial({ color: 0x1a2c44, shininess: 140 });
   const body = new THREE.Mesh(new THREE.BoxGeometry(t.len, 0.85, 2.0), paint);
   body.position.y = 0.75; body.castShadow = true; g.add(body);
+  // hood + trunk slopes so the silhouette is not a brick
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.22, 0.28, 1.9), paint);
+  hood.position.set(t.len * 0.36, 1.05, 0); hood.rotation.z = -0.18; hood.castShadow = true; g.add(hood);
+  const trunk = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.18, 0.26, 1.9), paint);
+  trunk.position.set(-t.len * 0.38, 1.04, 0); trunk.rotation.z = 0.14; g.add(trunk);
+  // cabin with a chrome window trim frame behind the glass
+  const trim = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.54, 0.78, 1.86), chrome);
+  trim.position.set(-t.len * 0.06, 1.42, 0); g.add(trim);
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.5, 0.7, 1.8), glass);
   cabin.position.set(-t.len * 0.06, 1.45, 0); cabin.castShadow = true; g.add(cabin);
+  // grille + bumpers + side mirrors
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 1.2), dark);
+  grille.position.set(t.len / 2 + 0.02, 0.72, 0); g.add(grille);
+  for (const bx of [t.len / 2 - 0.05, -t.len / 2 + 0.05]) {
+    const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 2.05), chrome);
+    bumper.position.set(bx, 0.42, 0); g.add(bumper);
+  }
+  for (const mz of [1.02, -1.02]) {
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.1), dark);
+    mirror.position.set(t.len * 0.18, 1.35, mz); g.add(mirror);
+  }
+  // wheels with hubcaps
   const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.3, 12);
   const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  const hubGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.32, 10);
   const wheels = [];
   for (const [wx, wz] of [[t.len * 0.32, 0.95], [t.len * 0.32, -0.95], [-t.len * 0.32, 0.95], [-t.len * 0.32, -0.95]]) {
     const w = new THREE.Mesh(wheelGeo, wheelMat);
     w.rotation.x = Math.PI / 2; w.position.set(wx, 0.38, wz); g.add(w); wheels.push(w);
+    const hub = new THREE.Mesh(hubGeo, chrome);
+    hub.rotation.x = Math.PI / 2; hub.position.set(wx, 0.38, wz); g.add(hub);
   }
   const hlMat = new THREE.MeshBasicMaterial({ color: 0xfff6c8 });
   for (const z of [0.65, -0.65]) {
@@ -59,6 +85,39 @@ export function buildCarMesh(type, colorHex) {
     const sign = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 0.9),
       new THREE.MeshBasicMaterial({ color: 0xfff2a8 }));
     sign.position.set(0, 1.95, 0); g.add(sign);
+    // checker stripe along the doors
+    const check = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.7, 0.28, 2.03),
+      new THREE.MeshLambertMaterial({ color: 0x111111 }));
+    check.position.set(0, 0.62, 0); g.add(check);
+  }
+  if (type === 'sport') {
+    // rear spoiler on two struts
+    for (const sz of [0.6, -0.6]) {
+      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 0.1), dark);
+      strut.position.set(-t.len / 2 + 0.15, 1.3, sz); g.add(strut);
+    }
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 1.9), paint);
+    wing.position.set(-t.len / 2 + 0.15, 1.5, 0); wing.castShadow = true; g.add(wing);
+  }
+  if (type === 'van') {
+    // roof rack
+    const rack = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.5, 0.08, 1.5), dark);
+    rack.position.set(-0.2, 1.88, 0); g.add(rack);
+    for (const [rx, rz] of [[-0.2, 0.7], [-0.2, -0.7]]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.5, 0.14, 0.08), dark);
+      rail.position.set(rx, 1.95, rz); g.add(rail);
+    }
+  }
+  if (type === 'pickup') {
+    // open bed: low walls around the rear half
+    const bedFloor = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.36, 0.12, 1.8), dark);
+    bedFloor.position.set(-t.len * 0.3, 1.0, 0); g.add(bedFloor);
+    for (const bz of [0.9, -0.9]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(t.len * 0.36, 0.5, 0.1), paint);
+      wall.position.set(-t.len * 0.3, 1.25, bz); g.add(wall);
+    }
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 1.8), paint);
+    tail.position.set(-t.len * 0.48, 1.25, 0); g.add(tail);
   }
   g.userData.wheels = wheels; g.userData.lightBar = lightBar;
   return g;
@@ -85,6 +144,8 @@ class Car {
   forward() { return { x: Math.cos(this.heading), z: -Math.sin(this.heading) }; }
   damage(amount, world) {
     if (this.dead) return;
+    // garage Armor Plating: the player's car takes less damage per level
+    if (this.driver === 'player' && world && world.garage) amount *= world.garage.damageMult();
     this.health -= amount;
     if (this.health <= 40 && !this.smoking) { this.smoking = true; }
     if (this.health <= 0) {
@@ -220,7 +281,9 @@ export const Cars = {
   },
   _drive(car, dt, world, accelInput, steerInput, handbrake, boost) {
     const def = car.def;
-    const top = def.top * (boost ? 1.25 : 1);
+    // garage upgrades bite here: Engine Tune raises top speed, NOS raises boost
+    const g = world.garage;
+    const top = def.top * (g ? g.speedMult() : 1) * (boost ? (g ? g.boostMult() : 1.25) : 1);
     let accel = accelInput * def.accel;
     if (handbrake) { accel = 0; car.speed *= Math.max(0, 1 - 3.2 * dt); }
     if (accelInput > 0) car.speed += accel * dt;
@@ -332,7 +395,7 @@ export const Cars = {
     void PITCH; void BLOCK;
   },
   _updatePoliceCar(car, dt, world) {
-    const target = world.player.pos;
+    const target = world.playerCar ? world.playerCar.pos : world.player.pos;
     const dx = target.x - car.pos.x, dz = target.z - car.pos.z;
     const dist = Math.hypot(dx, dz);
     const wantHeading = Math.atan2(-dz, dx);

@@ -59,6 +59,18 @@ export const Effects = {
   smoke(p) { this.burst(p, 3, [0.3, 0.3, 0.3], 1.2, 1.4, 2.5); },
   skid(p) { this.burst(p, 2, [0.55, 0.55, 0.55], 0.8, 0.7, 0.8); },
   blood(p) { this.burst(p, 10, [0.7, 0.05, 0.05], 3, 0.5, 1); },
+  heal(p) { // green rising sparkles for medkits / safehouse rest
+    this.burst(p, 18, [0.3, 1.0, 0.5], 1.5, 0.9, 3.5);
+    this.burst(p, 8, [0.9, 1.0, 0.6], 1, 0.7, 4);
+  },
+  cashBurst(p) { // gold coin spray for a purchase
+    this.burst(p, 22, [1.0, 0.85, 0.2], 4, 0.7, 3);
+    this.burst(p, 8, [1.0, 0.95, 0.6], 2, 0.5, 2);
+  },
+  rotorWash(p) { // dust kicked up under the police helicopter — few, dim,
+    // short-lived: the shared 1.6pt squares read as glitchy white boxes else
+    this.burst(p, 2, [0.5, 0.47, 0.4], 2.0, 0.6, 0.6);
+  },
   shake(a) { shakeAmt = Math.min(1.2, shakeAmt + a); },
   getShake() { return shakeAmt; },
   update(dt) {

@@ -14,6 +14,10 @@ export const SaveSys = {
         health: typeof d.health === 'number' ? d.health : 100,
         ammo: typeof d.ammo === 'number' ? d.ammo : 48,
         playMinutes: typeof d.playMinutes === 'number' ? d.playMinutes : 0,
+        armor: typeof d.armor === 'number' ? d.armor : 0,
+        garage: d.garage && typeof d.garage === 'object'
+          ? { speed: d.garage.speed | 0, armor: d.garage.armor | 0, nos: d.garage.nos | 0 }
+          : { speed: 0, armor: 0, nos: 0 },
       };
     } catch (_) { return null; }
   },
@@ -25,6 +29,8 @@ export const SaveSys = {
         health: data.health | 0,
         ammo: data.ammo | 0,
         playMinutes: data.playMinutes | 0,
+        armor: data.armor | 0,
+        garage: data.garage || { speed: 0, armor: 0, nos: 0 },
         savedAt: Date.now(),
       }));
       return true;

@@ -104,6 +104,16 @@ export const HUD = {
     dot(lm.garage.x, lm.garage.z, '#ffd94a');
     dot(lm.warehouse.x, lm.warehouse.z, '#b08954');
     dot(lm.bank.x, lm.bank.z, '#37d67a');
+    // shops (gold $) + safehouse (green home)
+    if (lm.shopArms) dot(lm.shopArms.x, lm.shopArms.z, '#ffd94a', 3);
+    if (lm.shopMedi) dot(lm.shopMedi.x, lm.shopMedi.z, '#ff8fa3', 3);
+    if (lm.shopMart) dot(lm.shopMart.x, lm.shopMart.z, '#ffd94a', 3);
+    if (lm.safehouse) {
+      g.fillStyle = '#37d67a';
+      const sx = toPx(lm.safehouse.x), sy = toPx(lm.safehouse.z);
+      g.fillRect(sx - 3, sy - 2, 6, 5);
+      g.beginPath(); g.moveTo(sx - 4, sy - 2); g.lineTo(sx, sy - 6); g.lineTo(sx + 4, sy - 2); g.closePath(); g.fill();
+    }
     // mission beacon / fare
     const op = world.missions.objectivePos();
     if (op && (world.missions.current || world.missions.fare)) {
@@ -127,6 +137,16 @@ export const HUD = {
     for (const o of world.police.officers) {
       g.fillStyle = '#3a86ff';
       g.fillRect(toPx(o.pos.x) - 2, toPx(o.pos.z) - 2, 4, 4);
+    }
+    // police helicopter: a yellow H with a rotor bar
+    if (world.helicopter && world.helicopter.active && world.helicopter.mesh) {
+      const h = world.helicopter.mesh.position;
+      const hx = toPx(h.x), hy = toPx(h.z);
+      g.fillStyle = '#ffd94a';
+      g.beginPath(); g.arc(hx, hy, 5, 0, 7); g.fill();
+      g.fillStyle = '#111';
+      g.font = 'bold 8px Arial'; g.textAlign = 'center';
+      g.fillText('H', hx, hy + 3);
     }
     // player arrow
     const px = toPx(world.player.pos.x), py = toPx(world.player.pos.z);

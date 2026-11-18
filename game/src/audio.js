@@ -3,6 +3,20 @@
 let ctx = null, master = null, musicGain = null, engineNodes = null, sirenNodes = null;
 let muted = false, musicOn = false, musicTimer = null;
 let noteStep = 0;
+let radioStation = 0, radioMode = false, rotorNodes = null;
+
+// Radio stations: each a 4-bar chord loop the music scheduler reads.
+// 0 SUNWAVE FM — synthwave (Am–F–C–G). 1 PALM 98.5 — island groove
+// (C–G–Am–F, slower, offbeat stabs). 2 TALK 88 — talk radio: voice blips.
+const RADIO = [
+  { roots: [110, 87.31, 130.81, 98],
+    chords: [[220, 261.63, 329.63], [174.61, 220, 261.63], [196, 261.63, 329.63], [196, 246.94, 293.66]],
+    barLen: 1.9, offbeat: false },
+  { roots: [130.81, 98, 110, 87.31],
+    chords: [[261.63, 329.63, 392], [196, 246.94, 293.66], [220, 261.63, 329.63], [174.61, 220, 261.63]],
+    barLen: 2.4, offbeat: true },
+  { roots: [0, 0, 0, 0], chords: [[], [], [], []], barLen: 2.2, talk: true },
+];
 
 function ensure() {
   if (ctx) return true;
@@ -54,6 +68,38 @@ export const AudioSys = {
   },
   pickup() { tone(660, 0.08, 'sine', 0.18); tone(990, 0.12, 'sine', 0.18, 0.08); },
   busted() { [440, 415, 392, 370].forEach((f, i) => tone(f, 0.3, 'sawtooth', 0.15, i * 0.16)); },
+  purchase() {
+    // cash register cha-ching: two bright pings + a coin tick
+    tone(1320, 0.09, 'sine', 0.22); tone(1760, 0.16, 'sine', 0.2, 0.09);
+    noiseBurst(0.05, 0.12, 6000);
+  },
+  heal() { tone(523, 0.2, 'sine', 0.18); tone(659, 0.2, 'sine', 0.18, 0.12); tone(784, 0.3, 'sine', 0.18, 0.24); },
+  rotor(on) {
+    if (!ensure()) return;
+    if (!on) {
+      if (rotorNodes) { try { rotorNodes.o.stop(); } catch (_) {} try { rotorNodes.n.stop(); } catch (_) {} rotorNodes = null; }
+      return;
+    }
+    if (rotorNodes) return;
+    // rotor thump: low square wave chopped by an LFO + filtered noise wash
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square'; o.frequency.value = 13;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 220;
+    g.gain.value = 0.11;
+    o.connect(f); f.connect(g); g.connect(master); o.start();
+    const len = Math.floor(ctx.sampleRate * 0.5);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const n = ctx.createBufferSource(); n.buffer = buf; n.loop = true;
+    const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 400;
+    const ng = ctx.createGain(); ng.gain.value = 0.05;
+    n.connect(nf); nf.connect(ng); ng.connect(master); n.start();
+    rotorNodes = { o, n };
+  },
+  setRadioStation(i) { radioStation = ((i % RADIO.length) + RADIO.length) % RADIO.length; },
+  radioStation() { return radioStation; },
+  radioOn(on) { radioMode = !!on; },
   engine(speed01, on) {
     if (!ensure()) return;
     if (!on) { if (engineNodes) { try { engineNodes.o.stop(); } catch (_) {} engineNodes = null; } return; }
@@ -81,15 +127,30 @@ export const AudioSys = {
   startMusic() {
     if (musicOn || !ensure()) return;
     musicOn = true;
-    // Am – F – C – G synthwave loop, scheduled a bar at a time.
-    const roots = [110, 87.31, 130.81, 98];
-    const chordTones = [[220, 261.63, 329.63], [174.61, 220, 261.63], [196, 261.63, 329.63], [196, 246.94, 293.66]];
-    const barLen = 1.9;
+    // The scheduler reads the live station: on foot it plays the ambient
+    // synthwave loop (station 0); in a car it plays the radio station.
     const scheduleBar = () => {
       if (!musicOn || muted) return;
+      const st = radioMode ? RADIO[radioStation] : RADIO[0];
+      const barLen = st.barLen;
       const bar = noteStep++ % 4;
       const t0 = ctx.currentTime + 0.05;
-      chordTones[bar].forEach((f) => {
+      if (st.talk) {
+        // TALK 88: a "host" murmuring — short voice-like blips + static
+        for (let k = 0; k < 5; k++) {
+          const f = 170 + Math.random() * 160;
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = f;
+          const at = t0 + Math.random() * (barLen - 0.3);
+          g.gain.setValueAtTime(0.0001, at);
+          g.gain.linearRampToValueAtTime(0.06, at + 0.05);
+          g.gain.linearRampToValueAtTime(0.0001, at + 0.16 + Math.random() * 0.12);
+          o.connect(g); g.connect(musicGain); o.start(at); o.stop(at + 0.4);
+        }
+        noiseBurst(0.3, 0.015, 3000);
+        return;
+      }
+      st.chords[bar].forEach((f) => {
         const o = ctx.createOscillator(), g = ctx.createGain();
         o.type = 'triangle'; o.frequency.value = f;
         g.gain.setValueAtTime(0.0001, t0);
@@ -98,14 +159,34 @@ export const AudioSys = {
         g.gain.linearRampToValueAtTime(0.0001, t0 + barLen);
         o.connect(g); g.connect(musicGain); o.start(t0); o.stop(t0 + barLen + 0.05);
       });
+      if (st.offbeat) {
+        // island offbeat: a short chord stab halfway through the bar
+        const at = t0 + barLen / 2;
+        st.chords[bar].forEach((f) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'square'; o.frequency.value = f * 2;
+          g.gain.setValueAtTime(0.0001, at);
+          g.gain.linearRampToValueAtTime(0.025, at + 0.03);
+          g.gain.linearRampToValueAtTime(0.0001, at + 0.18);
+          o.connect(g); g.connect(musicGain); o.start(at); o.stop(at + 0.25);
+        });
+      }
       const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = roots[bar];
+      o.type = 'sine'; o.frequency.value = st.roots[bar];
       g.gain.setValueAtTime(0.09, t0);
       g.gain.linearRampToValueAtTime(0.0001, t0 + barLen);
       o.connect(g); g.connect(musicGain); o.start(t0); o.stop(t0 + barLen + 0.05);
     };
     scheduleBar();
-    musicTimer = setInterval(scheduleBar, barLen * 1000);
+    // reschedule on the current station's bar length, so switching
+    // stations changes the tempo at the next bar
+    const reschedule = () => {
+      if (!musicOn) return;
+      scheduleBar();
+      const st = radioMode ? RADIO[radioStation] : RADIO[0];
+      musicTimer = setTimeout(reschedule, st.barLen * 1000);
+    };
+    musicTimer = setTimeout(reschedule, RADIO[0].barLen * 1000);
   },
-  stopMusic() { musicOn = false; if (musicTimer) clearInterval(musicTimer); musicTimer = null; },
+  stopMusic() { musicOn = false; if (musicTimer) { clearTimeout(musicTimer); clearInterval(musicTimer); } musicTimer = null; },
 };

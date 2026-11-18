@@ -46,7 +46,7 @@ const DEFS = [
     briefing: 'Mara Voss: "The heat is on you, Jace — three stars and every cruiser in Sunvale. Survive forty-five seconds. Lose them or outrun them."',
     steps: [
       { text: 'Survive the heat — 45 seconds', target: null, radius: 0, timer: 45,
-        onStart: (w) => { w.police.addHeat(3, 'heat check'); },
+        onStart: (w) => { w.police.ensureStars(3, 'heat check'); },
         check: (w, m) => m.stepTime >= 45 || w.police.stars === 0 },
     ],
   },
@@ -72,10 +72,65 @@ const DEFS = [
       { text: 'Drive to Sunvale Bank', target: (w) => w.city.landmarks.bank, radius: 9,
         check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.bank.x, w.player.pos.z - w.city.landmarks.bank.z) < 9 },
       { text: 'Grab the cash from the vault', target: (w) => w.city.landmarks.bank, radius: 4,
-        onStart: (w) => { w.police.addHeat(4, 'bank job'); },
+        onStart: (w) => { w.police.ensureStars(4, 'bank job'); },
         check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.bank.x, w.player.pos.z - w.city.landmarks.bank.z) < 4 },
       { text: "Escape to Mara's Garage", target: (w) => w.city.landmarks.garage, radius: 7,
         check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.garage.x, w.player.pos.z - w.city.landmarks.garage.z) < 7 },
+    ],
+  },
+  {
+    id: 'm6', name: 'Boardwalk Delivery', reward: 900, timeLimit: 75,
+    briefing: 'Mara Voss: "A package for a friend on the boardwalk — seventy-five seconds, no detours, no cops. The sea air is on me."',
+    steps: [
+      { text: 'Get in a car', target: null, radius: 0, check: (w) => !!w.playerCar },
+      { text: 'Deliver to the boardwalk — 75 seconds', target: (w) => w.city.landmarks.beach, radius: 9, timer: 75,
+        check: (w) => w.playerCar &&
+          Math.hypot(w.playerCar.pos.x - w.city.landmarks.beach.x, w.playerCar.pos.z - w.city.landmarks.beach.z) < 9 },
+    ],
+  },
+  {
+    id: 'm7', name: 'Taxi King', reward: 1500,
+    briefing: 'Mara Voss: "The taxi game pays, Jace — three fares, back to back, no excuses. The city tips a driver who shows up."',
+    steps: [
+      { text: 'Drive the taxi — complete 3 fares', target: null, radius: 0,
+        check: (w) => w.missions.faresDone >= 3 },
+    ],
+  },
+  {
+    id: 'm8', name: 'Plaza Showdown', reward: 1800,
+    briefing: 'Mara Voss: "Rocco\'s crew is shaking down the plaza. Clear the three of them out and the plaza is ours again."',
+    steps: [
+      { text: 'Go to the Plaza', target: (w) => w.city.landmarks.plaza, radius: 10,
+        check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.plaza.x, w.player.pos.z - w.city.landmarks.plaza.z) < 10 },
+      { text: 'Clear the three enforcers', target: (w) => w.city.landmarks.plaza, radius: 14,
+        onStart: (w) => w.missions.spawnGuardsAt(w.city.landmarks.plaza, 3),
+        check: (w) => w.missions.guards.every((g) => g.down) },
+      { text: "Report back to Mara's Garage", target: (w) => w.city.landmarks.garage, radius: 7,
+        check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.garage.x, w.player.pos.z - w.city.landmarks.garage.z) < 7 },
+    ],
+  },
+  {
+    id: 'm9', name: 'Getaway Driver', reward: 2500, timeLimit: 60,
+    briefing: 'Mara Voss: "Four stars, a helicopter over your head, and sixty seconds to lose them. Then vanish to the beach. Show me you can drive."',
+    steps: [
+      { text: 'Survive the heat — 60 seconds', target: null, radius: 0, timer: 60,
+        onStart: (w) => { w.police.ensureStars(4, 'getaway'); },
+        check: (w, m) => m.stepTime >= 60 || w.police.stars === 0 },
+      { text: 'Vanish — reach the beach', target: (w) => w.city.landmarks.beach, radius: 9,
+        check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.beach.x, w.player.pos.z - w.city.landmarks.beach.z) < 9 },
+    ],
+  },
+  {
+    id: 'm10', name: 'Sunvale Heist', reward: 8000,
+    briefing: 'Mara Voss: "The bank again — bigger this time. Five stars, the helicopter, everything they have. Then disappear to the safehouse. This is the last one, Jace. Make it count."',
+    steps: [
+      { text: 'Drive to Sunvale Bank', target: (w) => w.city.landmarks.bank, radius: 9,
+        check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.bank.x, w.player.pos.z - w.city.landmarks.bank.z) < 9 },
+      { text: 'Hit the vault — five stars', target: (w) => w.city.landmarks.bank, radius: 4,
+        onStart: (w) => { w.police.ensureStars(5, 'sunvale heist'); },
+        check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.bank.x, w.player.pos.z - w.city.landmarks.bank.z) < 4 },
+      { text: 'Disappear to the safehouse', target: (w) => w.city.landmarks.safehouse, radius: 8,
+        check: (w) => Math.hypot(w.player.pos.x - w.city.landmarks.safehouse.x, w.player.pos.z - w.city.landmarks.safehouse.z) < 8 },
     ],
   },
 ];
@@ -87,10 +142,12 @@ export const Missions = {
   guards: [],
   fare: null, // { state, pickup, dest, reward, timer, marker }
   fareCooldown: 0,
+  faresDone: 0, // taxi fares completed this session (m7 "Taxi King" counts them)
   beacon: null,
   init(world) {
     this.world = world;
     this.current = null; this.done = []; this.guards = []; this.fare = null;
+    this.faresDone = 0;
     // waypoint beacon: additive light pillar + pulsing ring
     const geo = new THREE.CylinderGeometry(1.6, 1.6, 60, 12, 1, true);
     const mat = new THREE.MeshBasicMaterial({
@@ -139,12 +196,14 @@ export const Missions = {
     if (this.world.save) this.world.save();
   },
   spawnGuards() {
+    this.spawnGuardsAt(this.world.city.landmarks.warehouse, 4);
+  },
+  spawnGuardsAt(base, count) {
     const w = this.world;
-    const base = w.city.landmarks.warehouse;
     this.guards = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < count; i++) {
       const mesh = makeGuardMesh();
-      const a = (i / 4) * Math.PI * 2;
+      const a = (i / count) * Math.PI * 2;
       mesh.position.set(base.x + Math.cos(a) * 9, 0, base.z + Math.sin(a) * 9);
       w.scene.add(mesh);
       this.guards.push({ mesh, pos: mesh.position, health: 50, down: false, shootAt: 1 + Math.random(), phase: Math.random() * 6 });
@@ -214,8 +273,10 @@ export const Missions = {
         AudioSys.pickup();
       }
     }
-    // taxi fare
-    if (!this.fare && world.playerCar && world.playerCar.type === 'taxi' && !this.current) {
+    // taxi fare — starts when driving the taxi with no mission active,
+    // or while "Taxi King" (m7) is the active mission, since it counts fares
+    if (!this.fare && world.playerCar && world.playerCar.type === 'taxi' &&
+        (!this.current || this.current.def.id === 'm7')) {
       this.fareCooldown -= dt;
       if (this.fareCooldown <= 0) this.startFare();
     }
@@ -231,7 +292,8 @@ export const Missions = {
           if (world.hud) world.hud.toast('Passenger aboard — drive to the marker', 4);
         } else {
           world.cash += f.reward;
-          if (world.hud) world.hud.toast(`Fare complete! +$${f.reward}`, 4);
+          this.faresDone++;
+          if (world.hud) world.hud.toast(`Fare complete! +$${f.reward} (fares: ${this.faresDone})`, 4);
           AudioSys.pickup();
           this.fare = null;
           this.fareCooldown = 20;
@@ -243,10 +305,11 @@ export const Missions = {
         this.fareCooldown = 15;
       }
     }
-    // guards shoot at the player
+    // guards shoot at the anchor (the car, if driving)
     for (const g of this.guards) {
       if (g.down) continue;
-      const dx = world.player.pos.x - g.pos.x, dz = world.player.pos.z - g.pos.z;
+      const anchor = world.playerCar ? world.playerCar.pos : world.player.pos;
+      const dx = anchor.x - g.pos.x, dz = anchor.z - g.pos.z;
       const d = Math.hypot(dx, dz);
       g.mesh.rotation.y = Math.atan2(-dz, dx);
       g.shootAt -= dt;

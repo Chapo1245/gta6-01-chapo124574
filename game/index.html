@@ -23,12 +23,36 @@
   <div id="objective-box"><span id="objective"></span> <span id="obj-dist"></span></div>
   <canvas id="minimap" width="220" height="220"></canvas>
   <div id="speedo">0 MPH</div>
+  <div id="radio">♪ SUNWAVE FM</div>
+  <div id="prompt"></div>
   <div id="ammo">AMMO 12 / 48</div>
   <div id="crosshair"><span></span></div>
   <div id="message"></div>
-  <div id="help">WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; E enter / exit car &nbsp;·&nbsp; Click shoot &nbsp;·&nbsp; F punch &nbsp;·&nbsp; R reload &nbsp;·&nbsp; Shift run / boost &nbsp;·&nbsp; Space jump / handbrake &nbsp;·&nbsp; M next job &nbsp;·&nbsp; P pause</div>
+  <div id="help">WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; E enter / exit car &nbsp;·&nbsp; Click shoot &nbsp;·&nbsp; F punch &nbsp;·&nbsp; R reload / radio &nbsp;·&nbsp; Shift run / boost &nbsp;·&nbsp; Space jump / handbrake &nbsp;·&nbsp; M next job &nbsp;·&nbsp; B shop &nbsp;·&nbsp; G garage &nbsp;·&nbsp; H rest &nbsp;·&nbsp; P pause</div>
 </div>
 <div id="damage"></div>
+
+<!-- Shop -->
+<div id="shop" class="overlay hidden">
+  <div class="overlay-inner shop-inner">
+    <h2 id="shop-name">SUNVALE ARMS</h2>
+    <p id="shop-sub">Guns · Ammo · Kevlar</p>
+    <div id="shop-cash">Cash: $0</div>
+    <div id="shop-items"></div>
+    <button id="shop-close">LEAVE</button>
+  </div>
+</div>
+
+<!-- Garage -->
+<div id="garage" class="overlay hidden">
+  <div class="overlay-inner shop-inner">
+    <h2>MARA'S GARAGE</h2>
+    <p>Upgrades — they stick to every car you drive.</p>
+    <div id="garage-cash">Cash: $0</div>
+    <div id="garage-items"></div>
+    <button id="garage-close">BACK TO THE STREETS</button>
+  </div>
+</div>
 
 <!-- Start screen -->
 <div id="menu">
@@ -36,8 +60,9 @@
     <div class="menu-kicker">A SUN-SOAKED OPEN WORLD</div>
     <h1>SUNVALE<br>HEAT</h1>
     <p class="menu-story">Jace rolls into Sunvale with empty pockets and a fast mouth.
-      Mara Voss runs the streets — five jobs, one big score, and every cop
-      in the city between you and the money. Steal it. Drive it. Survive it.</p>
+      Mara Voss runs the streets — ten jobs, one last heist, and every cop
+      in the city between you and the money. Steal it. Drive it. Tune it.
+      Survive it.</p>
     <div id="mission-list"></div>
     <button id="play-btn">▶ &nbsp;START ENGINE</button>
     <button id="continue-btn" class="hidden">CONTINUE — <span id="continue-info"></span></button>
@@ -45,7 +70,9 @@
       <div><b>WASD</b> move / drive</div><div><b>Mouse</b> look &amp; aim</div>
       <div><b>E</b> steal / exit car</div><div><b>Click</b> shoot &nbsp; <b>F</b> punch</div>
       <div><b>Shift</b> run / boost</div><div><b>Space</b> jump / handbrake</div>
-      <div><b>M</b> next job</div><div><b>P</b> pause &nbsp; <b>N</b> mute</div>
+      <div><b>M</b> next job</div><div><b>R</b> reload / radio</div>
+      <div><b>B</b> shop (on foot)</div><div><b>G</b> garage (in car)</div>
+      <div><b>H</b> rest at safehouse</div><div><b>P</b> pause &nbsp; <b>N</b> mute</div>
     </div>
     <div class="menu-foot">Sunvale Heat — an original game. No real city, person or brand.</div>
   </div>

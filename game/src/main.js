@@ -12,6 +12,10 @@ import { AudioSys } from './audio.js';
 import { SaveSys } from './save.js';
 import { Input } from './input.js';
 import { Effects } from './effects.js';
+import { Helicopter } from './helicopter.js';
+import { Shops } from './shops.js';
+import { Radio } from './radio.js';
+import { Garage } from './garage.js';
 
 const THREE = window.THREE;
 const world = {
@@ -57,6 +61,10 @@ function boot() {
   world.busted = busted;
   world.wasted = wasted;
   world.onCarExploded = onCarExploded;
+  world.helicopter = Helicopter;
+  world.shops = Shops;
+  world.radio = Radio;
+  world.garage = Garage;
 
   HUD.init();
   Cars.init(world);
@@ -64,6 +72,10 @@ function boot() {
   Pedestrians.init(world);
   Police.init(world);
   Missions.init(world);
+  Helicopter.init(world);
+  Shops.init(world);
+  Radio.init(world);
+  Garage.init(world);
   Input.init(renderer.domElement);
 
   // key bindings that live at the top level
@@ -81,11 +93,20 @@ function boot() {
     if (next && !Missions.current) Missions.startMission(next);
   });
   Input.onPress('KeyP', () => togglePause());
-  Input.onPress('Escape', () => { if (world.state === 'playing') togglePause(); });
+  Input.onPress('Escape', () => {
+    if (world.state === 'shopping') { Shops.close(); return; }
+    if (world.state === 'garage') { Garage.close(); return; }
+    if (world.state === 'playing') togglePause();
+  });
   Input.onPress('KeyN', () => {
     AudioSys.setMuted(!AudioSys.isMuted());
     HUD.toast(AudioSys.isMuted() ? 'Sound muted' : 'Sound on', 2);
   });
+  // R4 keys: B shop, G garage, R radio (in car), H rest at safehouse
+  Input.onPress('KeyB', () => { if (world.state === 'playing') Shops.open(); });
+  Input.onPress('KeyG', () => { if (world.state === 'playing') Garage.open(); });
+  Input.onPress('KeyR', () => { if (world.state === 'playing') Radio.cycle(); });
+  Input.onPress('KeyH', () => { if (world.state === 'playing') Shops.rest(); });
   $('play-btn').addEventListener('click', () => { AudioSys.unlock(); startGame(false); });
   $('continue-btn').addEventListener('click', () => { AudioSys.unlock(); startGame(true); });
   $('resume-btn').addEventListener('click', () => togglePause());
@@ -137,8 +158,10 @@ function startGame(useSave) {
   const save = useSave ? SaveSys.load() : null;
   world.cash = save ? save.cash : 0;
   Player.health = save ? save.health : 100;
+  Player.armor = save ? save.armor : 0;
   Player.ammo = 12;
   Player.reserveAmmo = save ? save.ammo : 48;
+  Garage.levels = save && save.garage ? { ...save.garage } : { speed: 0, armor: 0, nos: 0 };
   Missions.done = save ? [...save.missionsDone] : [];
   world.gameMinutes = 9 * 60;
   world.state = 'playing';
@@ -223,6 +246,8 @@ function saveGame() {
     health: Math.round(Player.health),
     ammo: Player.reserveAmmo,
     playMinutes: Math.round(world.playSeconds / 60),
+    armor: Math.round(Player.armor),
+    garage: { ...Garage.levels },
   });
 }
 
@@ -239,7 +264,8 @@ function stageShot() {
     Player.enterCar(taxi, world);
     taxi.speed = 12;
     world.cash = 1250;
-    // police ahead-left and behind, traffic ahead (mission 3's onStart adds the 3-star heat)
+    // police ahead-left and behind, traffic ahead (mission 9's onStart adds
+    // the 4-star heat, which spawns the police helicopter overhead)
     const p1 = Cars.spawnPolice(-32, 74);
     p1.heading = Math.PI / 2; p1.targetHeading = Math.PI / 2;
     const p2 = Cars.spawnPolice(-20, 108);
@@ -249,9 +275,16 @@ function stageShot() {
     t1.mesh.position.set(-26, 0, 42); t1.axis = 'z'; t1.dir = -1; t1.heading = Math.PI / 2; t1.targetHeading = Math.PI / 2; t1.speed = 10;
     const t2 = Cars.traffic[1];
     t2.mesh.position.set(-26, 0, 18); t2.axis = 'z'; t2.dir = -1; t2.heading = Math.PI / 2; t2.targetHeading = Math.PI / 2; t2.speed = 9;
-    Missions.startMission(Missions.defs[2]);
-    Missions.current.stepTime = 33; // 12s left on the clock
-    world.camYaw = Math.PI; world.camPitch = 0.3;
+    Missions.startMission(Missions.defs[8]); // m9 Getaway Driver — 4 stars + heli
+    Missions.current.stepTime = 33; // 27s left on the clock
+    // park the helicopter ahead of the car so the chase camera sees it:
+    // spawn it now (update would spawn it on the next tick, over a rooftop)
+    // and put it low over the street ahead of the taxi; it then tracks its
+    // slow circle from there instead of climbing above the frame.
+    world.helicopter.spawn();
+    world.helicopter.angle = -Math.PI / 2;
+    world.helicopter.mesh.position.set(-26, 14, 66);
+    world.camYaw = Math.PI; world.camPitch = 0.08; // low level cam: sky + heli in frame
   } else if (shot === 'street') {
     Player.pos.set(-14, 0, 44);
     Player.heading = Math.PI;
@@ -325,6 +358,10 @@ function tick() {
     Pedestrians.update(dt, world);
     Police.update(dt, world);
     Missions.update(dt, world);
+    Helicopter.update(dt, world);
+    Shops.update(dt, world);
+    Radio.update(dt, world);
+    Garage.update(dt, world);
     saveTimer += dt;
     if (saveTimer > 30) { saveTimer = 0; saveGame(); }
   }
@@ -332,10 +369,12 @@ function tick() {
   Effects.update(dt);
   updateCamera(dt);
   if (world.state === 'playing') HUD.update(world, dt);
-  // sun shadow follows the player
+  // sun shadow + dusk follow the player: golden hour past 17:00
   const ap = world.playerCar ? world.playerCar.pos : Player.pos;
   world.city.sun.position.set(ap.x + 120, 180, ap.z + 60);
   world.city.sun.target.position.set(ap.x, 0, ap.z);
+  const duskF = Math.max(0, Math.min(1, (world.gameMinutes - 17 * 60) / 90));
+  world.city.setDusk(duskF, ap.x, ap.z);
   world.renderer.render(world.scene, world.camera);
 }
 

@@ -35,6 +35,7 @@ export const Player = {
   pos: null,
   heading: 0,
   health: 100,
+  armor: 0, // Kevlar vest from shops: absorbs damage before health does
   ammo: 12,
   reserveAmmo: 48,
   velY: 0,
@@ -50,7 +51,7 @@ export const Player = {
     this.mesh.position.set(20, 0, 20);
     this.pos = this.mesh.position;
     this.heading = Math.PI * 0.75;
-    this.health = 100; this.ammo = 12; this.reserveAmmo = 48;
+    this.health = 100; this.armor = 0; this.ammo = 12; this.reserveAmmo = 48;
     world.scene.add(this.mesh);
   },
   enterCar(car, world) {

@@ -147,6 +147,12 @@ export const Combat = {
   damagePlayer(amount, world) {
     const player = world.player;
     if (player.invulnUntil > performance.now() / 1000) return;
+    // Kevlar absorbs first: armor soaks the hit, health only takes the rest
+    if (player.armor > 0) {
+      const soaked = Math.min(player.armor, amount);
+      player.armor -= soaked;
+      amount -= soaked;
+    }
     player.health -= amount;
     player.invulnUntil = performance.now() / 1000 + 0.25;
     if (world.hud) world.hud.flashDamage();
