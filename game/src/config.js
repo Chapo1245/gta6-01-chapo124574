@@ -1,61 +1,62 @@
-// Every tuning number and colour in one place. The playfield is a fixed 1280x720 logical area;
-// the renderer scales it to the window, so no rule below depends on the screen size.
+// Azura Bay — world and tuning constants.
+window.AZURA = window.AZURA || {};
 
-export const FIELD = { width: 1280, height: 720, groundY: 664 };
-
-/** The simulation's fixed step, in seconds: 60 updates a second whatever the display's rate. */
-export const STEP = 1 / 60;
-
-export const PLAYER = {
-  width: 72,
-  height: 24,
-  speed: 560,
-  invulnerable: 1.5,
+const AzuraConfig = {
+  // World layout (metres). Eight avenues run north-south, eight streets
+  // east-west, 70 m apart, roads 14 m wide; the 49 blocks sit BETWEEN
+  // the roads, 56 m square.
+  roadCenters: [-245, -175, -105, -35, 35, 105, 175, 245],
+  blockCenters: [-210, -140, -70, 0, 70, 140, 210],
+  roadWidth: 14,
+  halfCity: 280,
+  blockSize: 56,
+  // South edge: beachfront hotels, boardwalk, sand, ocean.
+  boardwalkZ: 256,
+  sandStartZ: 262,
+  oceanStartZ: 300,
+  // Golden-hour lighting.
+  sunColor: 0xffb36b,
+  sunIntensity: 1.9,
+  sunPosition: [-180, 140, 220],
+  skyColor: 0xffd9a0,
+  fogColor: 0xf2b98a,
+  fogNear: 260,
+  fogFar: 720,
+  // Player on foot.
+  walkSpeed: 7,
+  sprintSpeed: 11,
+  playerRadius: 0.7,
+  playerHealth: 100,
+  // Driving.
+  carAccel: 22,
+  carBrake: 34,
+  carReverseMax: 12,
+  carTopSpeed: 38,
+  carSteer: 0.55,
+  handbrakeGrip: 0.35,
+  carRadius: 2.2,
+  // Wanted system.
+  wantedDecaySeconds: 22,
+  maxWanted: 5,
+  // Economy.
+  startCash: 250,
+  snackPrice: 25,
+  engine2Price: 800,
+  engine3Price: 2000,
+  armorPrice: 1200,
+  // Landmarks (block centres).
+  plaza: { x: 0, z: 0 },
+  park: { x: -140, z: -140 },
+  garage: { x: 140, z: 140 },
+  safehouse: { x: -210, z: 210 },
+  shops: [
+    { x: 70, z: -70, name: 'Marina Market' },
+    { x: -70, z: 70, name: 'Palm Deli' },
+    { x: 140, z: -210, name: 'Bay Snacks' },
+  ],
+  // Palette.
+  buildingColors: [0xf2e3c6, 0xe8b48a, 0xd98f6a, 0xcfe0e8, 0xf6d9a0, 0xb8c4a8, 0xe5c8b0, 0x9fc3d4],
+  carColors: [0xc0392b, 0x2e86c1, 0xf1c40f, 0x27ae60, 0x8e44ad, 0xe67e22, 0xecf0f1, 0x1a1a2e],
 };
 
-export const LIVES = 3;
-
-export const BLOCK = {
-  minWidth: 40,
-  maxWidth: 110,
-  height: 36,
-  speed: 240,
-  speedPerLevel: 30,
-  speedJitter: 90,
-  interval: 0.55,
-  intervalScale: 0.88,
-  minInterval: 0.14,
-  dodgePoints: 1,
-};
-
-export const COIN = {
-  size: 24,
-  speed: 190,
-  speedPerLevel: 14,
-  interval: 1.4,
-  intervalJitter: 0.8,
-  points: 10,
-};
-
-/** Seconds of play per level, and the last level: speeds and spawn rates stop growing there. */
-export const LEVEL = { seconds: 12, max: 12 };
-
-/** How many falling things can exist at once; the pool is allocated once, at boot. */
-export const POOL_SIZE = 64;
-
-export const PALETTE = {
-  backdrop: '#11141b',
-  sky: '#1b1f2a',
-  ground: '#2a3040',
-  player: '#4fc3f7',
-  block: '#e5534b',
-  coin: '#f2c94c',
-  panel: '#252b38',
-  text: '#eef1f5',
-  muted: '#8b93a3',
-};
-
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
-
-/** Where the best score is kept between visits (this browser only). */
-export const BEST_KEY = 'block-dodger.best';
+AZURA.config = AzuraConfig;

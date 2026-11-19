@@ -1,79 +1,77 @@
-// The screenshot scenes behind ?shot=start|play|end. Each one plays the real rules forward from a
-// fresh world for a fixed number of steps, steered by a simple autopilot (look ahead each way the
-// paddle could move, keep clear of blocks, chase the lowest coin when that is safe), so the frame
-// is what a short game really looks like and the same seed always gives the same frame.
-import { FIELD, PLAYER, STEP } from './config.js';
-import { EVENT_OVER, KIND_BLOCK } from './world.js';
-import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// Azura Bay — screenshot staging behind ?shot=cover|drive|mission|vista.
+// Each scene puts the real game in a fixed, photogenic state (real rules,
+// real traffic, real HUD) and sets window.__shotReady once it has rendered
+// a few frames, so a screenshot is a true render of the game.
+window.AZURA = window.AZURA || {};
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 26;
-const END_LIMIT_SECONDS = 600;
-/**
- * How far ahead, in seconds, the autopilot checks each way it could move: the play scene's pilot
- * looks well ahead and keeps all its lives; the end scene's looks only a moment ahead, so it is
- * caught out once the blocks speed up, as a hurried player is.
- */
-const HORIZON_PLAY = 0.7;
-const HORIZON_END = 0.25;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [0, -1, 1];
-/** Extra room, each side, it keeps between the paddle and a block. */
-const MARGIN = 10;
+const AzuraShots = {
+  apply(game, name) {
+    const scene = game.scene;
+    game.shotMode = true;
+    game.state = 'playing';
+    game.hud.showHud(game);
+    const p = game.player;
 
-/** Seconds until moving in `direction` (-1, 0, 1) runs the paddle into a block; Infinity when it never does. */
-function timeToHit(state, direction, horizon) {
-  const player = state.player;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * t));
-    for (let index = 0; index < state.items.length; index += 1) {
-      const item = state.items[index];
-      if (!item.active || item.kind !== KIND_BLOCK) continue;
-      const y = item.y + item.speed * t;
-      if (y + item.height > player.y && y < player.y + player.height && item.x < x + player.width + MARGIN && item.x + item.width > x - MARGIN) return t;
+    if (name === 'drive') {
+      // Mara driving north up avenue 35, traffic ahead on the same road,
+      // 2 stars with a cruiser closing in behind.
+      const car = AZURA.car.makeCar(scene, { color: 0xc0392b, x: 35, z: 140, heading: 0 });
+      game.cars.push(car);
+      AZURA.player.enterCar(game, car);
+      car.speed = 16;
+      [90, 50, 10].forEach((z) => {
+        const t = AZURA.car.makeCar(scene, { x: 38.5, z, heading: 0 });
+        t.cruiseSpeed = 10;
+        t.vertical = true;
+        t.dir = -1;
+        game.cars.push(t);
+      });
+      game.wanted = 2;
+      game.lastCrimeAt = game.time;
+      game.cameraMode = 'chase';
+    } else if (name === 'mission') {
+      // Job 4 at the plaza fountain: Mara drives west along street -35
+      // straight at the beacon, two cruisers ahead, helicopter circling
+      // in front with its searchlight on the street.
+      game.missions.index = 3;
+      const car = AZURA.car.makeCar(scene, { color: 0x2e86c1, x: 60, z: -35, heading: Math.PI / 2 });
+      game.cars.push(car);
+      AZURA.player.enterCar(game, car);
+      car.speed = 14;
+      [[25, -45], [10, -25]].forEach(([x, z]) => {
+        const cruiser = AZURA.car.makeCar(scene, { color: 0xf5f5f5, police: true, x, z, heading: -Math.PI / 2 });
+        game.cars.push(cruiser);
+        game.police.cruisers.push(cruiser);
+      });
+      game.wanted = 3;
+      game.lastCrimeAt = game.time;
+      game.police.heliAngle = Math.PI;
+      game.cameraMode = 'chase';
+    } else if (name === 'vista') {
+      // High above the beach, looking north over the boardwalk and the city.
+      p.x = 35;
+      p.z = 250;
+      p.heading = 0;
+      p.group.position.set(p.x, 0, p.z);
+      game.cameraMode = 'vista';
+    } else {
+      // Cover: golden-hour shot from avenue 35 — Mara's yellow car in
+      // front, the city rising behind it.
+      const car = AZURA.car.makeCar(scene, { color: 0xf1c40f, x: 35, z: 180, heading: 0 });
+      game.cars.push(car);
+      AZURA.player.enterCar(game, car);
+      game.missions.index = 0;
+      game.cameraMode = 'cover';
     }
-  }
-  return Infinity;
-}
+    // A few frames in, the scene is settled: flag it ready.
+    let frames = 0;
+    const watch = () => {
+      frames += 1;
+      if (frames >= 3) window.__shotReady = true;
+      else requestAnimationFrame(watch);
+    };
+    requestAnimationFrame(watch);
+  },
+};
 
-/** Of the safe ways to move, the one toward the lowest coin (or the centre); else the one that is hit last. */
-function autopilot(state, horizon) {
-  const player = state.player;
-  let coin = null;
-  for (let index = 0; index < state.items.length; index += 1) {
-    const item = state.items[index];
-    if (item.active && item.kind !== KIND_BLOCK && (coin === null || item.y > coin.y)) coin = item;
-  }
-  const target = coin === null ? FIELD.width / 2 : coin.x + coin.width / 2;
-  const centre = player.x + player.width / 2;
-  const wanted = target > centre + 8 ? 1 : target < centre - 8 ? -1 : 0;
-  let best = wanted;
-  let bestTime = timeToHit(state, wanted, horizon);
-  for (let index = 0; index < DIRECTIONS.length && bestTime !== Infinity; index += 1) {
-    const time = timeToHit(state, DIRECTIONS[index], horizon);
-    if (time > bestTime) {
-      bestTime = time;
-      best = DIRECTIONS[index];
-    }
-  }
-  return best;
-}
-
-/**
- * Set `world` to the named scene (start, play or end; any other name is start) and return the
- * screen to draw over it and the best score to show.
- */
-export function stageShot(name, world) {
-  world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, 0, true);
-    return { screen: SCREEN_TITLE, best: 0 };
-  }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let index = 0; index < limit / STEP; index += 1) {
-    if (world.step(STEP, autopilot(world.state, horizon), false) & EVENT_OVER) break;
-  }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
-}
+AZURA.shots = AzuraShots;

@@ -3,17 +3,112 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>Azura Bay — Open-World Crime Game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1210; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
+  #game { position: fixed; inset: 0; }
+  #game canvas { display: block; }
+  #hud { display: none; position: fixed; inset: 0; pointer-events: none; }
+  .panel { position: absolute; background: rgba(10, 12, 18, 0.72); border-radius: 10px; padding: 10px 14px; }
+  #topLeft { top: 14px; left: 14px; }
+  #stars { font-size: 22px; letter-spacing: 2px; color: #ffc93c; }
+  #cash { font-size: 20px; font-weight: 700; color: #7dff9a; }
+  #healthBar { width: 150px; height: 10px; background: #333; border-radius: 5px; margin-top: 6px; overflow: hidden; }
+  #health { height: 100%; width: 100%; background: #e74c3c; }
+  #objective { top: 14px; left: 50%; transform: translateX(-50%); font-size: 15px; font-weight: 600; max-width: 46%; text-align: center; }
+  #minimapWrap { top: 14px; right: 14px; padding: 6px; }
+  #minimap { display: block; width: 180px; height: 180px; border-radius: 6px; }
+  #bottomLeft { bottom: 16px; left: 14px; font-size: 18px; font-weight: 700; }
+  #bottomRight { bottom: 16px; right: 14px; text-align: right; font-size: 14px; }
+  #hint { bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 15px; }
+  #toast { top: 70px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 600; background: rgba(10, 12, 18, 0.85); opacity: 0; transition: opacity 0.4s; }
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; background: rgba(8, 8, 14, 0.72); text-align: center; z-index: 10; }
+  .overlay h1 { font-size: 64px; margin: 0; letter-spacing: 4px; color: #ffc93c; text-shadow: 0 4px 24px rgba(0,0,0,0.7); }
+  .overlay h2 { font-size: 22px; margin: 8px 0 4px; color: #fff; }
+  .overlay p { max-width: 560px; line-height: 1.5; color: #ddd; margin: 8px 0; }
+  .overlay button { pointer-events: auto; margin-top: 14px; padding: 12px 34px; font-size: 18px; font-weight: 700; border: none; border-radius: 8px; background: #ffc93c; color: #1a1a1a; cursor: pointer; }
+  .overlay button:hover { background: #ffd95e; }
+  .overlay button:disabled { background: #555; color: #999; cursor: default; }
+  .controls { font-size: 14px; color: #bbb; line-height: 1.7; }
+  #touch { display: none; position: fixed; bottom: 70px; left: 0; right: 0; pointer-events: none; z-index: 5; }
+  #touch button { pointer-events: auto; position: absolute; width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); background: rgba(0,0,0,0.4); color: #fff; font-size: 22px; }
+  #tLeft { left: 20px; bottom: 0; } #tRight { left: 100px; bottom: 0; }
+  #tUp { right: 20px; bottom: 60px; } #tDown { right: 20px; bottom: -10px; }
+  #tAction { right: 100px; bottom: 20px; background: rgba(255,201,60,0.5); }
+  #tPunch { right: 180px; bottom: 20px; }
+  @media (pointer: coarse) { #touch { display: block; } }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
-<p id="status" role="status" aria-live="polite"></p>
-<script type="module" src="./src/main.js"></script>
+<div id="game"></div>
+
+<div id="hud">
+  <div class="panel" id="topLeft">
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="cash">$250</div>
+    <div id="healthBar"><div id="health"></div></div>
+  </div>
+  <div class="panel" id="objective">Job 1/8</div>
+  <div class="panel" id="minimapWrap"><canvas id="minimap" width="180" height="180"></canvas></div>
+  <div class="panel" id="bottomLeft"><span id="speed">on foot</span></div>
+  <div class="panel" id="bottomRight">Radio: <span id="radio">Sunset FM</span><br>1/2/3 station · M mute</div>
+  <div class="panel" id="hint"></div>
+  <div class="panel" id="toast"></div>
+</div>
+
+<div id="touch">
+  <button id="tLeft">◀</button>
+  <button id="tRight">▶</button>
+  <button id="tUp">▲</button>
+  <button id="tDown">▼</button>
+  <button id="tAction">E</button>
+  <button id="tPunch">F</button>
+</div>
+
+<div class="overlay" id="menu" style="display:flex">
+  <h1>AZURA BAY</h1>
+  <h2>Mara Voss is back in town — and the city owes her.</h2>
+  <p>Steal cars, outrun the law, and run eight story jobs across a sun-soaked coastal city: the plaza, the park, the boardwalk and the open ocean. Five wanted stars stand between you and the big score.</p>
+  <p class="controls">WASD move / drive · Space handbrake · E enter car &amp; interact · F punch · G garage · 1/2/3 radio · P pause</p>
+  <button id="startBtn">Start the engine</button>
+</div>
+
+<div class="overlay" id="pauseMenu">
+  <h1>PAUSED</h1>
+  <p>Azura Bay waits for no one — except right now.</p>
+  <button id="resumeBtn">Keep driving</button>
+</div>
+
+<div class="overlay" id="overMenu">
+  <h1 id="overTitle">WASTED</h1>
+  <p id="overStats"></p>
+  <button id="restartBtn">Try again</button>
+</div>
+
+<div class="overlay" id="garageMenu">
+  <h1>GARAGE</h1>
+  <p id="garageCash">Cash $0</p>
+  <p>Rico's garage — upgrades for your ride.</p>
+  <button id="buyEngine2">Engine Mk II — $800</button>
+  <button id="buyEngine3">Engine Mk III — $2,000</button>
+  <button id="buyArmor">Armor plating — $1,200</button>
+  <button id="garageClose">Back to the street</button>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script src="./src/config.js"></script>
+<script src="./src/utils.js"></script>
+<script src="./src/audio.js"></script>
+<script src="./src/city.js"></script>
+<script src="./src/car.js"></script>
+<script src="./src/player.js"></script>
+<script src="./src/traffic.js"></script>
+<script src="./src/police.js"></script>
+<script src="./src/missions.js"></script>
+<script src="./src/hud.js"></script>
+<script src="./src/input.js"></script>
+<script src="./src/save.js"></script>
+<script src="./src/shots.js"></script>
+<script src="./src/main.js"></script>
 </body>
 </html>

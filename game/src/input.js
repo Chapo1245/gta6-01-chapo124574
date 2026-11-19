@@ -1,53 +1,77 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Azura Bay — keyboard + touch input. Held keys are read every frame;
+// one-shot presses (interact, punch, pause, radio) are queued as flags
+// and taken once, so a press between frames is never lost or doubled.
+window.AZURA = window.AZURA || {};
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+const AzuraInput = {
+  create() {
+    const keys = {};
+    const pressed = {};
+    const touch = { forward: false, back: false, left: false, right: false };
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
+    window.addEventListener('keydown', (event) => {
+      if (event.repeat) return;
+      keys[event.code] = true;
+      pressed[event.code] = true;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
+    });
+    window.addEventListener('keyup', (event) => {
+      keys[event.code] = false;
+    });
+    window.addEventListener('blur', () => {
+      Object.keys(keys).forEach((k) => { keys[k] = false; });
+    });
 
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+    // Touch buttons (shown on touch devices by CSS).
+    const bindTouch = (id, name) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const on = (e) => { e.preventDefault(); touch[name] = true; };
+      const off = (e) => { e.preventDefault(); touch[name] = false; };
+      el.addEventListener('pointerdown', on);
+      el.addEventListener('pointerup', off);
+      el.addEventListener('pointerleave', off);
+      el.addEventListener('pointercancel', off);
+    };
+    bindTouch('tUp', 'forward');
+    bindTouch('tDown', 'back');
+    bindTouch('tLeft', 'left');
+    bindTouch('tRight', 'right');
+    const bindTap = (id, code) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); pressed[code] = true; });
+    };
+    bindTap('tAction', 'KeyE');
+    bindTap('tPunch', 'KeyF');
 
-  window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
-  });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
-  });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
-  window.addEventListener('blur', () => {
-    left = false;
-    right = false;
-  });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
-  });
+    return {
+      keys, pressed, touch,
+      // -1/0/1 steering, forward/back booleans, handbrake, sprint.
+      read() {
+        const left = keys.ArrowLeft || keys.KeyA || touch.left;
+        const right = keys.ArrowRight || keys.KeyD || touch.right;
+        const forward = keys.ArrowUp || keys.KeyW || touch.forward;
+        const back = keys.ArrowDown || keys.KeyS || touch.back;
+        return {
+          steer: (right ? 1 : 0) - (left ? 1 : 0),
+          forward: !!forward,
+          back: !!back,
+          handbrake: !!keys.Space,
+          sprint: !!keys.ShiftLeft || !!keys.ShiftRight,
+          // On-foot movement, camera-relative (camera sits behind heading).
+          moveX: (right ? 1 : 0) - (left ? 1 : 0),
+          moveZ: (forward ? 1 : 0) - (back ? 1 : 0),
+        };
+      },
+      // Take and clear one-shot presses since the last call.
+      takePressed() {
+        const taken = { ...pressed };
+        Object.keys(pressed).forEach((k) => { pressed[k] = false; });
+        return taken;
+      },
+    };
+  },
+};
 
-  return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
-    },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
-    },
-  };
-}
+AZURA.input = AzuraInput;
